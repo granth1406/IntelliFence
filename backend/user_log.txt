@@ -1,2 +1,3 @@
 Registered A User - Name: TestUser1, Email: testuser1@hotmail.com, Role: undefined
 User Logged In - Name: TestUser1, Email: testuser1@hotmail.com
+User Logged In - Name: TestUser1, Email: testuser1@hotmail.com
