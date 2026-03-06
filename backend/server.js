@@ -1,7 +1,9 @@
 const express = require('express');
 const db_var = require('./config/db_connection');
 const authRoutes = require('./routes/authRoutes');
+const incidentRoutes = require('./routes/incidentRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
+
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -12,6 +14,7 @@ app.use(express.urlencoded({extended: true}));
 app.use('/api/auth', authRoutes);
 app.use(authMiddleware);
 //other routes that require authentication can be added here
+app.use("/api/incidents", incidentRoutes);
 
 db_var.db_connection();
 
