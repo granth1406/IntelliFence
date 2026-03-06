@@ -4,4 +4,4 @@ dist/
 build/
 coverage/
 .DS_Store
-user_log.txt
+backend/user_log.txt
