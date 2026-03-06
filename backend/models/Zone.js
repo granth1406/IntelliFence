@@ -20,7 +20,14 @@ const zoneSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
+    },
+
+    status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending"
     }
+    
 }, {timestamps: true});
 
 const Zone = mongoose.model("Zone", zoneSchema);

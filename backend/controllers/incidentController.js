@@ -10,6 +10,9 @@ async function reportIncident(req,res){
             description
         });
 
+        const io = req.app.get("io");
+        io.emit("incident-reported",incident);
+
         res.status(201).json({
             message: "Incident reported",
             incident
