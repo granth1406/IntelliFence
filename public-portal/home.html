@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliFence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body >
+    <nav class = "flex justify-between items-center px-8 py-4 bg-gray-900 text-white">
+        <h1 class = "text-2xl font-bold text-blue-700">IntelliFence</h1>
+        <ul class ="flex gap-8">
+            <li class = "cursor-pointer">Home</li>
+            <li class = "cursor-pointer">Features</li>
+            <li class = "cursor-pointer">About</li>
+            <li class = "cursor-pointer">Login</li>
+        </ul>
+    </nav>
+    <section class="relative h-screen">
+
+
+    <video autoplay muted loop playsinline preload="auto"
+        class="absolute top-0 left-0 w-full h-full object-cover">
+        <source src="assets/map.mp4" type="video/mp4">
+    </video>
+
+    <div class="absolute top-0 left-0 w-full h-full bg-black opacity-30"></div>
+    <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center">
+
+        <h1 class="text-5xl font-[Orbitron] bg-gradient-to-r  text-blue-700 bg-clip-text font-bold ">
+            IntelliFence
+        </h1>
+
+        <p class="text-xl mb-6">
+            Smart Tourist Safety Monitoring System
+        </p>
+
+        <button class="bg-blue-500 px-6 py-3 rounded-lg hover:bg-blue-600">
+            Get Started
+        </button>
+
+    </div>
+
+</section>
+</body>
+</html>
