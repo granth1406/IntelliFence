@@ -1,12 +1,9 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const fs = require("fs");
-
 
 // REGISTER
 async function registerUser(req,res){
-
   try{
 
     const {name,email,password} = req.body;
@@ -28,10 +25,6 @@ async function registerUser(req,res){
       role:"user" // force default role
     });
 
-    logUserActivity(
-      `REGISTERED: ${name} (${email})`
-    );
-
     res.status(201).json({
       message:"User registered",
       userId:user._id,
@@ -45,10 +38,8 @@ async function registerUser(req,res){
 }
 
 
-
 // LOGIN
 async function loginUser(req,res){
-
   try{
 
     const {email,password} = req.body;
@@ -76,10 +67,6 @@ async function loginUser(req,res){
       },
       process.env.JWT_SECRET,
       { expiresIn:"7d" }
-    );
-
-    logUserActivity(
-      `LOGIN: ${user.name} (${email})`
     );
 
     res.status(200).json({
