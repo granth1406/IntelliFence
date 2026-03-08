@@ -27,9 +27,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 app.use('/api/auth', authRoutes);
-app.use(authMiddleware);
 //other routes that require authentication can be added here
-app.use("/api/location", locationRoutes);
+app.use("/api/location",authMiddleware, locationRoutes);
 app.use("/api/zones", zoneRoutes);
 
 db_var.db_connection();
