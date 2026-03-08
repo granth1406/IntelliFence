@@ -1,27 +1,70 @@
 const mongoose = require("mongoose");
 
 const zoneSchema = new mongoose.Schema({
-    name:{
-        type:String,
-        required: true
-    },
 
-    riskLevel: {
-        type:String,
-        enum: ["none", "low", "medium", "high"],
-        default: "none"
-    },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
 
-    coordinates:[{
-        latitude: Number,
-        longitude: Number
-    }],
+  type: {
+    type: String,
+    enum: ["incident","zone"],
+    default: "incident"
+  },
 
-    createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
+  title: String,
+
+  description: String,
+
+  riskLevel: {
+    type: String,
+    enum: ["low","medium","high"],
+    default: "medium"
+  },
+
+  latitude: Number,
+  longitude: Number,
+
+  coordinates: [
+    {
+      latitude: Number,
+      longitude: Number,
+      _id:false
     }
-}, {timestamps: true});
+  ],
 
-const Zone = mongoose.model("Zone", zoneSchema);
-module.exports = Zone;
+  status: {
+    type: String,
+    enum:["pending","verified by users","false","resolved"],
+    default:"pending"
+  },
+
+  verificationScore:{
+    type:Number,
+    default:0
+  },
+
+  confirmations:[
+    {
+      user:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User"
+      },
+      response:{
+        type:String,
+        enum:["confirm","reject"]
+      }
+    }
+  ],
+
+  alertLevel:{
+    type:String,
+    enum:["none","near","inside"],
+    default:"none"
+  }
+
+},{timestamps:true});
+
+module.exports = mongoose.model("Zone",zoneSchema);

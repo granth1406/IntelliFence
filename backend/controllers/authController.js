@@ -1,86 +1,100 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const fs = require('fs');
+const fs = require("fs");
 
 
+// REGISTER
 async function registerUser(req,res){
-    try{
 
-        const {name,email,password,role} = req.body;
+  try{
 
-         //Email
-        const existingUser = await User.findOne({email}); // 0 or 1
-        if(existingUser){ // 1 - user exists so no new creation
-            return res.status(409).json({message : "User Already Exists && Go to Login"});
-        }
+    const {name,email,password} = req.body;
 
-        //Password
-        const hashedPassword  = await bcrypt.hash(password, 10);
-        const user = await User.create({
-            name,
-            email,
-            password: hashedPassword
-        });
+    const existingUser = await User.findOne({email});
 
-        res.status(201).json({
-            message: "New User Registered",
-            userId: user._id
-        });
-
-        fs.writeFile('user_log.txt', `Registered A User - Name: ${name}, Email: ${email}, Role: ${role}\n`, { flag: 'a' }, (err) => {
-                if (err) {
-                    console.error('Error writing to file:', err);
-                } else {
-                    console.log('User details saved to user_log.txt');
-                }
-        });
-
-    }catch(error){
-        res.status(500).json({message : error.message});
+    if(existingUser){
+      return res.status(409).json({
+        message:"User already exists"
+      });
     }
-};
 
+    const hashedPassword = await bcrypt.hash(password,10);
+
+    const user = await User.create({
+      name,
+      email,
+      password:hashedPassword,
+      role:"user" // force default role
+    });
+
+    logUserActivity(
+      `REGISTERED: ${name} (${email})`
+    );
+
+    res.status(201).json({
+      message:"User registered",
+      userId:user._id,
+      role:user.role
+    });
+
+  }catch(error){
+    res.status(500).json({message:error.message});
+  }
+
+}
+
+
+
+// LOGIN
 async function loginUser(req,res){
-    try{
-        const {email,password} = req.body;
 
-        //Email
-        const user = await User.findOne({
-            email
-        });
-        if(!user){
-            return res.status(401).json({message : "User Does Not Exist"});
-        }
+  try{
 
-        //Password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if(!isPasswordValid){
-            return res.status(400).json({message : "Invalid Password"})
-        }
+    const {email,password} = req.body;
 
-        const token = jwt.sign(
-            {id: user._id},
-            process.env.JWT_SECRET,
-            {expiresIn : "7d"},
-        );
+    const user = await User.findOne({email});
 
-        res.status(200).json({
-            message: "Login successful",
-            token
-        });
-
-        fs.writeFile('./user_log.txt', `User Logged In - Name: ${user.name}, Email: ${email}\n`, { flag: 'a' }, (err) => {
-                if (err) {
-                    console.error('Error writing to file:', err);
-                } else {
-                    console.log('User login details saved to user_log.txt');
-                }
-        });
-
-    }catch(error){
-        res.status(500).json({message : error.message});
+    if(!user){
+      return res.status(401).json({
+        message:"Invalid email or password"
+      });
     }
-};
 
-module.exports = {loginUser, registerUser};
+    const isPasswordValid = await bcrypt.compare(password,user.password);
+
+    if(!isPasswordValid){
+      return res.status(401).json({
+        message:"Invalid email or password"
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id:user._id,
+        role:user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn:"7d" }
+    );
+
+    logUserActivity(
+      `LOGIN: ${user.name} (${email})`
+    );
+
+    res.status(200).json({
+      message:"Login successful",
+      token
+    });
+
+  }catch(error){
+    res.status(500).json({message:error.message});
+  }
+
+}
+
+
+module.exports = {
+  registerUser,
+  loginUser
+};

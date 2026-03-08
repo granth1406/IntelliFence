@@ -22,8 +22,13 @@ const userSchema = new mongoose.Schema({
     createdAt:{
         type: Date,
         default: Date.now
+    },
+    trustScore: {
+        type: Number,
+        default: 1
     }
-});
+
+},{timestamps:true});
 //name, email, password, role, createdAt
 
 const User = mongoose.model('User', userSchema);
