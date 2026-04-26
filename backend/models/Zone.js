@@ -14,9 +14,15 @@ const zoneSchema = new mongoose.Schema({
     default: "incident"
   },
 
-  title: String,
-
-  description: String,
+  title: {
+    type: String, 
+    required: true
+  }, 
+  
+  description: {
+    type : String,
+    required : true
+   },
 
   riskLevel: {
     type: String,

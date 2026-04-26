@@ -1,0 +1,11 @@
+0 verbose cli C:\nvm4w\nodejs\node.exe C:\nvm4w\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.2
+2 info using node@v22.13.1
+3 silly config load:file:C:\Users\DELL\AppData\Local\nvm\v22.13.1\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\DELL\Downloads\frontend\.npmrc
+5 silly config load:file:C:\Users\DELL\.npmrc
+6 silly config load:file:C:\Users\DELL\Downloads\frontend\%APPDATA%\npm\etc\npmrc
+7 verbose title npm install
+8 verbose argv "install"
+9 verbose logfile logs-max:10 dir:C:\Users\DELL\Downloads\frontend\%APPDATA%\npm-cache\_logs\2026-04-26T15_58_03_496Z-
+10 verbose logfile C:\Users\DELL\Downloads\frontend\%APPDATA%\npm-cache\_logs\2026-04-26T15_58_03_496Z-debug-0.log
