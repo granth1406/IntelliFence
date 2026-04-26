@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'authority'],
         default: 'user'
     },
+    refreshTokens: [{
+        token: String,
+        createdAt: { type: Date, default: Date.now }
+    }],
     createdAt:{
         type: Date,
         default: Date.now

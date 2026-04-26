@@ -42,7 +42,7 @@ io.on("connection", (socket)=>{
     });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
 server.listen(PORT, ()=>{
     console.log(`Running at http://localhost:${PORT}`);
