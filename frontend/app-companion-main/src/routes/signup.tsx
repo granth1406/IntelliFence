@@ -54,10 +54,13 @@ function SignupPage() {
   ];
 
   const onSubmit = async (values: FormValues) => {
-    await new Promise((r) => setTimeout(r, 600));
-    signup(values.name, values.email);
-    toast.success("Account created. Welcome aboard!");
-    navigate({ to: "/profile" });
+    try {
+      await signup(values.name, values.email, values.password);
+      toast.success("Account created. Welcome aboard!");
+      navigate({ to: "/profile" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Registration failed");
+    }
   };
 
   return (

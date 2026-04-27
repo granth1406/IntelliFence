@@ -36,10 +36,13 @@ function LoginPage() {
   });
 
   const onSubmit = async (values: FormValues) => {
-    await new Promise((r) => setTimeout(r, 600)); // simulate network
-    login(values.email);
-    toast.success("Welcome back!");
-    navigate({ to: "/profile" });
+    try {
+      await login(values.email, values.password);
+      toast.success("Welcome back!");
+      navigate({ to: "/profile" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Login failed");
+    }
   };
 
   return (

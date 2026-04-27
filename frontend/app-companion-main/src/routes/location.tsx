@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useApp } from "@/context/AppContext";
 
 export const Route = createFileRoute("/location")({
   head: () => ({
@@ -25,10 +26,36 @@ interface Coords {
 }
 
 function LocationPage() {
+  const { socket, isAuthenticated } = useApp();
   const [tracking, setTracking] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleZoneEntered = (data: any) => {
+      toast.warning(`Entered restricted zone: ${data.zoneName}`, {
+        description: `Risk level: ${data.riskLevel}`,
+      });
+    };
+
+    const handleNearZoneAlert = (data: any) => {
+      toast.warning("Approaching restricted zone", {
+        description: data.message,
+      });
+    };
+
+    socket.on("zone-entered", handleZoneEntered);
+    socket.on("near-zone-alert", handleNearZoneAlert);
+
+    return () => {
+      socket.off("zone-entered", handleZoneEntered);
+      socket.off("near-zone-alert", handleNearZoneAlert);
+    };
+  }, [socket]);
 
   // Use the browser geolocation API; no third-party map key required
   useEffect(() => {
@@ -47,12 +74,35 @@ function LocationPage() {
     setError(null);
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setCoords({
+        const newCoords = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
           timestamp: pos.timestamp,
-        });
+        };
+        setCoords(newCoords);
+
+        // Send location update to backend if authenticated
+        if (isAuthenticated) {
+          try {
+            const token = localStorage.getItem("token");
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/location/update`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                latitude: newCoords.lat,
+                longitude: newCoords.lng,
+              }),
+            }).catch((err) => {
+              console.error("Failed to send location update:", err);
+            });
+          } catch (err) {
+            console.error("Error sending location update:", err);
+          }
+        }
       },
       (err) => {
         setError(err.message);
@@ -64,9 +114,13 @@ function LocationPage() {
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     };
-  }, [tracking]);
+  }, [tracking, socket, isAuthenticated]);
 
   const handleToggle = (next: boolean) => {
+    if (!isAuthenticated) {
+      toast.error("Please log in to enable location tracking");
+      return;
+    }
     setTracking(next);
     toast(next ? "Tracking enabled" : "Tracking stopped", {
       description: next ? "Your location updates in realtime." : "We've stopped reading your location.",

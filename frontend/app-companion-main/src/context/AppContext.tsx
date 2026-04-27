@@ -1,11 +1,14 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { io, Socket } from "socket.io-client";
 
 // ---- Types ----
 export interface User {
   name: string;
   email: string;
-  bio: string;
+  bio?: string;
   avatarUrl?: string;
+  role?: string;
+  _id?: string;
 }
 
 export interface Notification {
@@ -21,10 +24,13 @@ interface AppContextValue {
   // Auth
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string) => void;
-  signup: (name: string, email: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => void;
+
+  // Socket
+  socket: Socket | null;
 
   // Notifications
   notifications: Notification[];
@@ -43,21 +49,118 @@ const seedNotifications: Notification[] = [
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Static demo user — wired into context state for editability
-  const [user, setUser] = useState<User | null>({
-    name: "Alex Morgan",
-    email: "alex@intellifence.app",
-    bio: "Field officer • Zone 4 monitoring",
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>(seedNotifications);
 
-  const login = useCallback((email: string) => {
-    setUser({ name: email.split("@")[0], email, bio: "" });
+  // Initialize user state from localStorage on client-side only
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("user");
+    if (token && userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch {
+        // Invalid data, clear it
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("refreshToken");
+      }
+    }
   }, []);
-  const signup = useCallback((name: string, email: string) => {
-    setUser({ name, email, bio: "" });
+
+  // Initialize socket connection when user is authenticated
+  useEffect(() => {
+    if (user && !socket) {
+      const token = localStorage.getItem("token");
+      const newSocket = io(import.meta.env.VITE_SOCKET_URL, {
+        auth: { token }
+      });
+
+      newSocket.on("connect", () => {
+        console.log("Connected to server");
+      });
+
+      newSocket.on("disconnect", () => {
+        console.log("Disconnected from server");
+      });
+
+      setSocket(newSocket);
+    } else if (!user && socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, [user, socket]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Login failed");
+    }
+
+    const data = await response.json();
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("refreshToken", data.refreshToken);
+
+    // Get user profile (you might need to add a /me endpoint)
+    const userResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
+      headers: {
+        "Authorization": `Bearer ${data.token}`,
+      },
+    });
+
+    if (userResponse.ok) {
+      const userData = await userResponse.json();
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+    } else {
+      // Fallback: create user object from email
+      const fallbackUser = { name: email.split("@")[0], email };
+      setUser(fallbackUser);
+      localStorage.setItem("user", JSON.stringify(fallbackUser));
+    }
   }, []);
-  const logout = useCallback(() => setUser(null), []);
+
+  const signup = useCallback(async (name: string, email: string, password: string) => {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Registration failed");
+    }
+
+    const data = await response.json();
+    // After signup, automatically log in
+    await login(email, password);
+  }, [login]);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    setUser(null);
+  }, []);
+
   const updateUser = useCallback(
     (patch: Partial<User>) => setUser((u) => (u ? { ...u, ...patch } : u)),
     []
@@ -66,6 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const markAsRead = useCallback((id: string) => {
     setNotifications((n) => n.map((x) => (x.id === id ? { ...x, read: true } : x)));
   }, []);
+
   const markAllAsRead = useCallback(() => {
     setNotifications((n) => n.map((x) => ({ ...x, read: true })));
   }, []);
@@ -81,6 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         updateUser,
+        socket,
         notifications,
         unreadCount,
         markAsRead,

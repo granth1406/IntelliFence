@@ -31,7 +31,7 @@ function ProfilePage() {
     if (user) {
       setName(user.name);
       setEmail(user.email);
-      setBio(user.bio);
+      setBio(user.bio ?? "");
       setAvatarUrl(user.avatarUrl);
     }
   }, [user]);
@@ -133,7 +133,7 @@ function ProfilePage() {
                     className="flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 resize-none"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground text-right">{bio.length}/280</p>
+                <p className="text-xs text-muted-foreground text-right">{bio?.length ?? 0}/280</p>
               </div>
 
               <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
