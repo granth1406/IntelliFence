@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Shield, CheckCircle, XCircle, Clock, AlertTriangle, Filter, MoreHorizontal, Users, MapPin } from "lucide-react";
+import { Shield, CheckCircle, XCircle, Clock, AlertTriangle, Filter, MoreHorizontal, Users, MapPin, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -82,9 +82,9 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [filters, setFilters] = useState({
-    status: "",
-    riskLevel: "",
-    incidentType: "",
+    status: "all",
+    riskLevel: "all",
+    incidentType: "all",
     limit: 50,
     offset: 0,
   });
@@ -129,9 +129,9 @@ function AdminDashboard() {
       const token = localStorage.getItem("token");
       const queryParams = new URLSearchParams();
 
-      if (filters.status) queryParams.append("status", filters.status);
-      if (filters.riskLevel) queryParams.append("riskLevel", filters.riskLevel);
-      if (filters.incidentType) queryParams.append("incidentType", filters.incidentType);
+      if (filters.status !== "all") queryParams.append("status", filters.status);
+      if (filters.riskLevel !== "all") queryParams.append("riskLevel", filters.riskLevel);
+      if (filters.incidentType !== "all") queryParams.append("incidentType", filters.incidentType);
       queryParams.append("limit", filters.limit.toString());
       queryParams.append("offset", filters.offset.toString());
 
@@ -251,6 +251,16 @@ function AdminDashboard() {
     return <Badge variant={variants[risk as keyof typeof variants] || "secondary"}>{risk}</Badge>;
   };
 
+  const resetFilters = () => {
+    setFilters({
+      status: "all",
+      riskLevel: "all",
+      incidentType: "all",
+      limit: 50,
+      offset: 0,
+    });
+  };
+
   if (!isAuthenticated || user?.role !== "authority") {
     return (
       <div className="min-h-screen flex flex-col">
@@ -273,147 +283,118 @@ function AdminDashboard() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+        <section className="relative overflow-hidden bg-gradient-hero">
+          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Admin Dashboard</p>
+              <Badge variant="secondary" className="mb-4">Admin dashboard</Badge>
               <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Zone Management</h1>
-              <p className="mt-2 text-muted-foreground">Monitor and manage all zones and incidents.</p>
+              <p className="mt-3 text-muted-foreground max-w-2xl">Monitor and manage all zones and incidents in real time.</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium">Authority Access</span>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="glass" asChild>
+                <Link to="/cases"><Archive className="h-4 w-4" /> Cases</Link>
+              </Button>
             </div>
           </div>
+        </section>
 
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Total
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalZones}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-500" />
-                  Pending
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">{stats.pendingCount}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Approved
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{stats.approvedCount}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  Denied
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">{stats.deniedCount}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-blue-500" />
-                  Resolved
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.resolvedCount}</div>
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 md:grid-cols-5 mb-8">
+            <StatCard title="Total zones" value={String(stats.totalZones)} icon={AlertTriangle} />
+            <StatCard title="Pending" value={String(stats.pendingCount)} icon={Clock} />
+            <StatCard title="Approved" value={String(stats.approvedCount)} icon={CheckCircle} />
+            <StatCard title="Denied" value={String(stats.deniedCount)} icon={XCircle} />
+            <StatCard title="Resolved" value={String(stats.resolvedCount)} icon={Shield} />
           </div>
 
           {/* Filters and Bulk Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex gap-2 flex-wrap">
-              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="denied">Denied</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filters.riskLevel} onValueChange={(value) => setFilters(prev => ({ ...prev, riskLevel: value }))}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Risk Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Risks</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filters.incidentType} onValueChange={(value) => setFilters(prev => ({ ...prev, incidentType: value }))}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Incident Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
-                  <SelectItem value="accident">Accident</SelectItem>
-                  <SelectItem value="traffic_jam">Traffic Jam</SelectItem>
-                  <SelectItem value="crime">Crime</SelectItem>
-                  <SelectItem value="suspicious_activity">Suspicious Activity</SelectItem>
-                  <SelectItem value="medical_emergency">Medical Emergency</SelectItem>
-                  <SelectItem value="natural_disaster">Natural Disaster</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedZones.length > 0 && (
+          <Card className="mb-6 bg-gradient-card border-border/60">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Filter className="h-4 w-4" /> Filters
+              </CardTitle>
               <div className="flex gap-2">
-                <Button variant="default" size="sm" onClick={() => handleBulkAction("approve")}>
-                  Approve ({selectedZones.length})
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => handleBulkAction("deny")}>
-                  Deny ({selectedZones.length})
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleBulkAction("resolve")}>
-                  Resolve ({selectedZones.length})
-                </Button>
+                <Button variant="outline" size="sm" onClick={resetFilters}>Show all</Button>
               </div>
-            )}
-          </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger className="w-full sm:w-32">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="denied">Denied</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.riskLevel} onValueChange={(value) => setFilters(prev => ({ ...prev, riskLevel: value }))}>
+                  <SelectTrigger className="w-full sm:w-32">
+                    <SelectValue placeholder="Risk Level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risks</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.incidentType} onValueChange={(value) => setFilters(prev => ({ ...prev, incidentType: value }))}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Incident Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="accident">Accident</SelectItem>
+                    <SelectItem value="traffic_jam">Traffic Jam</SelectItem>
+                    <SelectItem value="crime">Crime</SelectItem>
+                    <SelectItem value="suspicious_activity">Suspicious Activity</SelectItem>
+                    <SelectItem value="medical_emergency">Medical Emergency</SelectItem>
+                    <SelectItem value="natural_disaster">Natural Disaster</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedZones.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border flex flex-wrap gap-2">
+                  <Button variant="default" size="sm" onClick={() => handleBulkAction("approve")}>
+                    Approve ({selectedZones.length})
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => handleBulkAction("deny")}>
+                    Deny ({selectedZones.length})
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction("resolve")}>
+                    Resolve ({selectedZones.length})
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Zones Table */}
-          <Card>
+          <Card className="bg-gradient-card border-border/60">
             <CardHeader>
-              <CardTitle>Zones & Incidents</CardTitle>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Users className="h-4 w-4" /> Zones & Incidents
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="text-center py-8">Loading...</div>
+              ) : zones.length === 0 ? (
+                <div className="text-center py-10 space-y-3">
+                  <div className="text-lg font-semibold">No records match the current filters</div>
+                  <p className="text-sm text-muted-foreground">Try clearing filters to show all incidents and zones.</p>
+                  <Button variant="outline" onClick={resetFilters}>Show all records</Button>
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -512,9 +493,25 @@ function AdminDashboard() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </section>
       </main>
       <Footer />
     </div>
+  );
+}
+
+function StatCard({ title, value, icon: Icon }: { title: string; value: string; icon: typeof AlertTriangle }) {
+  return (
+    <Card className="bg-gradient-card border-border/60">
+      <CardContent className="p-6 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <div className="mt-2 text-3xl font-bold">{value}</div>
+        </div>
+        <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/15 text-primary">
+          <Icon className="h-6 w-6" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

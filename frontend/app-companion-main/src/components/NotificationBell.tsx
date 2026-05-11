@@ -1,4 +1,5 @@
 import { Bell, Check, CheckCheck, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,11 @@ export function NotificationBell() {
           ) : (
             notifications.map((n) => <NotificationItem key={n.id} n={n} onRead={markAsRead} />)
           )}
+        </div>
+        <div className="border-t border-border px-4 py-3">
+          <Button variant="ghost" className="w-full" asChild>
+            <Link to="/notifications">View all notifications</Link>
+          </Button>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

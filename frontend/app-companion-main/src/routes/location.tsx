@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Navigation, Power, Crosshair, AlertTriangle, Plus, Siren, Car, Users, Shield, Zap, CloudRain, HelpCircle, CheckCircle } from "lucide-react";
+import 'leaflet/dist/leaflet.css';
+// Leaflet requires `window` and must only be imported on the client.
+// We'll dynamically load it inside effects to avoid SSR errors.
+const leafletRef = { current: null } as any;
 import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -72,6 +76,200 @@ function LocationPage() {
   // Zone filters
   const [showApproved, setShowApproved] = useState(true);
   const [showUnapproved, setShowUnapproved] = useState(true);
+  const [zonesOnMap, setZonesOnMap] = useState<any[]>([]);
+
+  // compute hexagon vertices (approx, using degrees radius stored in zone.radius)
+  const computeHexagon = (lat: number, lng: number, radius: number) => {
+    const pts: [number, number][] = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i; // 60deg steps
+      const dLat = radius * Math.sin(angle);
+      const dLng = radius * Math.cos(angle) / Math.cos((lat * Math.PI) / 180);
+      pts.push([lat + dLat, lng + dLng]);
+    }
+    return pts;
+  };
+
+  const riskColor = (risk: string) => {
+    if (risk === 'high') return 'rgba(220,38,38,0.35)'; // red
+    if (risk === 'medium') return 'rgba(234,179,8,0.28)'; // yellow
+    return 'rgba(16,185,129,0.22)'; // green
+  };
+
+  const escapeHtml = (value: string) =>
+    value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+
+  // fetch zones to render on map
+  useEffect(() => {
+    let mounted = true;
+    const fetchZones = async () => {
+      try {
+        const base = import.meta.env.VITE_API_BASE_URL;
+        const results: any[] = [];
+
+        if (showApproved) {
+          const r = await fetch(`${base}/zones/zones`);
+          if (r.ok) {
+            const data = await r.json();
+            results.push(...data);
+          }
+        }
+
+        if (showUnapproved) {
+          const r2 = await fetch(`${import.meta.env.VITE_API_BASE_URL}/zones/incidents?approved=false`);
+          if (r2.ok) {
+            const data2 = await r2.json();
+            results.push(...data2);
+          }
+        }
+
+        if (!mounted) return;
+
+        // normalize zones to include vertices
+        const normalized = results.map((z: any) => {
+          if (z.hexagonVertices && z.hexagonVertices.length) {
+            return { ...z, vertices: z.hexagonVertices.map((v: any) => [v.latitude, v.longitude]) };
+          }
+          // fallback compute
+          const r = z.radius || 0.003;
+          return { ...z, vertices: computeHexagon(z.latitude, z.longitude, r) };
+        });
+
+        setZonesOnMap(normalized);
+        try { console.debug('Fetched zones for map', results.length, normalized); } catch (e) { }
+      } catch (err) {
+        console.error('Failed to fetch zones for map', err);
+      }
+    };
+
+    fetchZones();
+    return () => { mounted = false; };
+  }, [showApproved, showUnapproved]);
+
+  // Leaflet map init and updates
+  const mapRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
+  const zonesLayerRef = useRef<any>(null);
+  const LRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!coords) return;
+
+    // dynamically import Leaflet on the client
+    const init = async () => {
+      if (!LRef.current) {
+        const Leaflet = await import('leaflet');
+        LRef.current = Leaflet.default || Leaflet;
+      }
+
+      const L = LRef.current;
+
+      // initialize map if needed
+      if (!mapRef.current) {
+        mapRef.current = L.map('map', { center: [coords.lat, coords.lng], zoom: 15, preferCanvas: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(mapRef.current);
+      } else {
+        mapRef.current.setView([coords.lat, coords.lng], 15);
+      }
+
+      // ensure we have a dedicated layer group for zones so we can clear safely
+      if (!zonesLayerRef.current) {
+        zonesLayerRef.current = L.layerGroup().addTo(mapRef.current);
+      } else {
+        try { zonesLayerRef.current.clearLayers(); } catch (e) { }
+      }
+
+    // draw zones into the zones layer group
+      try { console.debug('Rendering zones on map', zonesOnMap.length, zonesOnMap); } catch (e) { }
+      zonesOnMap.forEach((z) => {
+        try {
+          // normalize vertices to numeric [lat, lng]
+          const verts = (z.vertices || []).map((v: any) => {
+            const lat = typeof v[0] === 'string' ? parseFloat(v[0]) : v[0];
+            const lng = typeof v[1] === 'string' ? parseFloat(v[1]) : v[1];
+            return [lat, lng];
+          }).filter((p: any) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+
+          if (!verts || verts.length < 3) {
+            console.warn('Zone has insufficient vertices, skipping', z._id || z.id, verts);
+            return;
+          }
+
+          const polygon = L.polygon(verts, { color: riskColor(z.riskLevel), weight: 1.5, fillColor: riskColor(z.riskLevel), fillOpacity: 0.35 });
+          const incidentTitle = z.title || z.name || 'Incident zone';
+          const incidentDescription = z.description || 'No additional details provided.';
+          const incidentTypeLabel = z.incidentType ? String(z.incidentType).replaceAll('_', ' ') : 'incident';
+
+          polygon.bindTooltip(escapeHtml(incidentTitle), {
+            sticky: true,
+            direction: 'top',
+            opacity: 0.95,
+            className: 'zone-tooltip',
+            permanent: false,
+          });
+
+          polygon.bindPopup(`
+            <div style="min-width: 220px; max-width: 280px;">
+              <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 6px;">Incident Info</div>
+              <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">${escapeHtml(incidentTitle)}</div>
+              <div style="font-size: 13px; line-height: 1.5; margin-bottom: 10px; color: #374151;">${escapeHtml(incidentDescription)}</div>
+              <div style="display:flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #4b5563;">
+                <span><strong>Type:</strong> ${escapeHtml(incidentTypeLabel)}</span>
+                <span><strong>Risk:</strong> ${escapeHtml(String(z.riskLevel || 'medium'))}</span>
+                <span><strong>Status:</strong> ${escapeHtml(String(z.status || 'pending'))}</span>
+              </div>
+            </div>
+          `);
+
+          polygon.on('click', () => {
+            polygon.openPopup();
+          });
+
+          polygon.on('mouseover', () => {
+            polygon.setStyle({ weight: 2.2, fillOpacity: 0.45 });
+          });
+
+          polygon.on('mouseout', () => {
+            polygon.setStyle({ weight: 1.5, fillOpacity: 0.35 });
+          });
+
+          zonesLayerRef.current.addLayer(polygon);
+        } catch (e) {
+          console.error('Failed to draw zone', e, z);
+        }
+      });
+
+      // draw or update persistent user location marker using an orange pin SVG
+      if (userMarkerRef.current) {
+        try {
+          userMarkerRef.current.setLatLng([coords.lat, coords.lng]);
+          if (typeof userMarkerRef.current.bringToFront === 'function') userMarkerRef.current.bringToFront();
+        } catch (e) { console.warn('Failed to update user marker', e); }
+      } else {
+        try {
+          const pinHtml = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ff7a00" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z" fill="#ff7a00"/>
+              <circle cx="12" cy="10" r="3" fill="white" />
+            </svg>`;
+          const icon = L.divIcon({ html: pinHtml, className: '', iconSize: [28, 28], iconAnchor: [14, 28] });
+          userMarkerRef.current = L.marker([coords.lat, coords.lng], { icon });
+          try { userMarkerRef.current.addTo(mapRef.current); if (typeof userMarkerRef.current.bringToFront === 'function') userMarkerRef.current.bringToFront(); } catch (e) { console.warn('Could not bring user marker to front', e); }
+        } catch (e) { console.error('Failed to add user marker', e); }
+      }
+    };
+
+    init();
+
+  }, [coords, zonesOnMap]);
 
   // Socket event listeners
   useEffect(() => {
@@ -313,6 +511,8 @@ function LocationPage() {
     return icons[type as keyof typeof icons] || AlertTriangle;
   };
 
+  const IncidentIcon = currentAlert ? getIncidentIcon(currentAlert.incidentType) : AlertTriangle;
+
   // Free, key-less map embed via OpenStreetMap
   const mapSrc = coords
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.01}%2C${coords.lat - 0.01}%2C${coords.lng + 0.01}%2C${coords.lat + 0.01}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
@@ -340,13 +540,8 @@ function LocationPage() {
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Map */}
             <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant aspect-[16/11]">
-              {mapSrc ? (
-                <iframe
-                  title="Your location"
-                  src={mapSrc}
-                  className="w-full h-full border-0"
-                  loading="lazy"
-                />
+              {coords ? (
+                <div id="map" className="w-full h-full"></div>
               ) : (
                 <MapPlaceholder tracking={tracking} />
               )}
@@ -359,29 +554,7 @@ function LocationPage() {
                 </div>
               )}
 
-              {/* Zone Filters */}
-              <div className="absolute top-4 right-4 glass rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="approved"
-                    checked={showApproved}
-                    onChange={(e) => setShowApproved(e.target.checked)}
-                    className="rounded"
-                  />
-                  <Label htmlFor="approved" className="text-xs">Approved</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="unapproved"
-                    checked={showUnapproved}
-                    onChange={(e) => setShowUnapproved(e.target.checked)}
-                    className="rounded"
-                  />
-                  <Label htmlFor="unapproved" className="text-xs">Unapproved</Label>
-                </div>
-              </div>
+              {/* Zone Filters moved to side panel to avoid Leaflet overlay */}
             </div>
 
             {/* Side panel */}
@@ -397,6 +570,32 @@ function LocationPage() {
                 <Stat label="Longitude" value={coords ? coords.lng.toFixed(6) : "—"} />
                 <Stat label="Accuracy" value={coords ? `±${Math.round(coords.accuracy)} m` : "—"} />
                 <Stat label="Updated" value={coords ? new Date(coords.timestamp).toLocaleTimeString() : "—"} />
+              </Card>
+
+              <Card>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Zone Filters</h3>
+                <div className="flex flex-col gap-3">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="approved-side"
+                      checked={showApproved}
+                      onChange={(e) => setShowApproved(e.target.checked)}
+                      className="rounded h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm">Show Approved Zones</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="unapproved-side"
+                      checked={showUnapproved}
+                      onChange={(e) => setShowUnapproved(e.target.checked)}
+                      className="rounded h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm">Show Unapproved Incidents</span>
+                  </label>
+                </div>
               </Card>
 
               {/* Incident Reporting */}
@@ -568,7 +767,7 @@ function LocationPage() {
 
               {currentAlert && (
                 <Alert>
-                  <getIncidentIcon className="h-4 w-4" />
+                  <IncidentIcon className="h-4 w-4" />
                   <AlertDescription>
                     <strong>{currentAlert.title}</strong><br />
                     {currentAlert.description}<br />

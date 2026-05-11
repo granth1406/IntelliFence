@@ -15,20 +15,28 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app)
 
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:8080";
+
+// Configure Socket.IO CORS to match the frontend origin (no trailing slash)
 const io = new Server(server, {
     cors: {
-        origin : "http://localhost:8080/"
+        origin: FRONTEND_ORIGIN,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
 app.set("io", io);
 
-app.use(cors());
+// Configure Express CORS to allow the frontend origin during development
+app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
+
+// Public auth routes
 app.use('/api/auth', authRoutes);
-app.use(authMiddleware);
-//other routes that require authentication can be added here
+
+// Do NOT apply `authMiddleware` globally — protect only routes that require authentication
 app.use("/api/location", locationRoutes);
 app.use("/api/zones", zoneRoutes);
 

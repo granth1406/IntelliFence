@@ -20,6 +20,7 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const { user, updateUser, isAuthenticated } = useApp();
+  const [saving, setSaving] = useState(false);
 
   // Local form state mirrors context so we can cancel edits
   const [name, setName] = useState(user?.name ?? "");
@@ -60,10 +61,34 @@ function ProfilePage() {
     setAvatarUrl(url);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser({ name, email, bio, avatarUrl });
-    toast.success("Profile updated");
+    setSaving(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name, email, bio, avatarUrl }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to save profile");
+      }
+
+      const updatedUser = await response.json();
+      updateUser(updatedUser);
+      toast.success("Profile updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save profile");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const initials = name?.[0]?.toUpperCase() ?? "U";
@@ -140,8 +165,8 @@ function ProfilePage() {
                 <Button type="button" variant="ghost" onClick={() => {
                   if (user) { setName(user.name); setEmail(user.email); setBio(user.bio); setAvatarUrl(user.avatarUrl); }
                 }}>Cancel</Button>
-                <Button type="submit" variant="hero">
-                  <Save className="h-4 w-4" /> Save changes
+                <Button type="submit" variant="hero" disabled={saving}>
+                  <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save changes"}
                 </Button>
               </div>
             </form>

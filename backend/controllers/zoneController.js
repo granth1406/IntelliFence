@@ -1,6 +1,7 @@
 const Zone = require("../models/Zone");
 const User = require("../models/User");
 const Location = require("../models/Location");
+const CaseRecord = require("../models/CaseRecord");
 
 
 // Incident type to radius mapping
@@ -19,14 +20,19 @@ async function createZone(req,res){
 
   try{
 
-    const {title,description,latitude,longitude,riskLevel} = req.body;
+    const {title,description,latitude,longitude,riskLevel, incidentType} = req.body;
 
-    const existing = await Zone.findOne({
-      type:"incident",
-      latitude: { $gte: latitude-0.0005, $lte: latitude+0.0005 },
-      longitude:{ $gte: longitude-0.0005, $lte: longitude+0.0005 },
-      status:"pending"
-    });
+    const existingQuery = {
+      type: "incident",
+      latitude: { $gte: latitude - 0.0005, $lte: latitude + 0.0005 },
+      longitude: { $gte: longitude - 0.0005, $lte: longitude + 0.0005 },
+      status: "pending",
+    };
+
+    // only treat as duplicate if the incidentType matches (allow different incident types nearby)
+    if (incidentType) existingQuery.incidentType = incidentType;
+
+    const existing = await Zone.findOne(existingQuery);
 
      if(existing){
       return res.status(409).json({
@@ -35,15 +41,17 @@ async function createZone(req,res){
     }
 
     const zone = await Zone.create({
-      createdBy:req.user.id,
+      createdBy: req.user.id,
       title,
       description,
       latitude,
       longitude,
       riskLevel,
-      type:"incident",
-      status:"pending",
-      approved: false
+      incidentType: incidentType || "other",
+      radius: INCIDENT_RADIUS[incidentType] || INCIDENT_RADIUS.other,
+      type: "incident",
+      status: "pending",
+      approved: false,
     });
 
     const io = req.app.get("io");
@@ -212,6 +220,28 @@ async function updateZone(req,res){
 }
 
 
+async function archiveZoneAsCase(zone, caseStatus, handledBy) {
+  await CaseRecord.create({
+    originalZoneId: zone._id,
+    caseStatus,
+    handledBy,
+    zoneSnapshot: {
+      title: zone.title,
+      description: zone.description,
+      incidentType: zone.incidentType,
+      riskLevel: zone.riskLevel,
+      latitude: zone.latitude,
+      longitude: zone.longitude,
+      radius: zone.radius,
+      status: zone.status,
+      approved: zone.approved,
+      createdAt: zone.createdAt,
+      updatedAt: zone.updatedAt,
+    },
+  });
+}
+
+
 // delete zone
 async function deleteZone(req,res){
 
@@ -250,16 +280,46 @@ async function approveZone(req,res){
 
 async function rejectZone(req,res){
 
-  const zone = await Zone.findByIdAndUpdate(
-    req.params.id,
-    {status:"denied", approved: false},
-    {new:true}
-  );
+  try {
+    const zone = await Zone.findById(req.params.id);
 
-  const io = req.app.get("io");
-  io.emit("zone-denied", zone);
+    if (!zone) {
+      return res.status(404).json({ message: "Zone not found" });
+    }
 
-  res.json(zone);
+    await archiveZoneAsCase(zone, "denied", req.user.id);
+    await Zone.findByIdAndDelete(zone._id);
+
+    const io = req.app.get("io");
+    io.emit("zone-denied", { ...zone.toObject(), status: "denied", approved: false });
+    io.emit("zone-deleted", zone._id);
+
+    res.json({ message: "Zone denied and archived as case", caseStatus: "denied", zoneId: zone._id });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+
+async function resolveZone(req,res){
+  try {
+    const zone = await Zone.findById(req.params.id);
+
+    if (!zone) {
+      return res.status(404).json({ message: "Zone not found" });
+    }
+
+    await archiveZoneAsCase(zone, "resolved", req.user.id);
+    await Zone.findByIdAndDelete(zone._id);
+
+    const io = req.app.get("io");
+    io.emit("zone-resolved", { ...zone.toObject(), status: "resolved" });
+    io.emit("zone-deleted", zone._id);
+
+    res.json({ message: "Zone resolved and archived as case", caseStatus: "resolved", zoneId: zone._id });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 
@@ -280,12 +340,16 @@ async function reportIncident(req, res) {
   try {
     const { incidentType, title, description, latitude, longitude, riskLevel } = req.body;
 
-    const existing = await Zone.findOne({
+    const existingQuery = {
       type: "incident",
       latitude: { $gte: latitude - 0.0005, $lte: latitude + 0.0005 },
       longitude: { $gte: longitude - 0.0005, $lte: longitude + 0.0005 },
-      status: "pending"
-    });
+      status: "pending",
+    };
+
+    if (incidentType) existingQuery.incidentType = incidentType;
+
+    const existing = await Zone.findOne(existingQuery);
 
     if (existing) {
       return res.status(409).json({
@@ -429,21 +493,20 @@ async function bulkDeny(req, res) {
   try {
     const { zoneIds } = req.body;
 
-    const zones = await Zone.updateMany(
-      { _id: { $in: zoneIds }, status: { $ne: "denied" } },
-      { status: "denied", approved: false }
-    );
+    const zones = await Zone.find({ _id: { $in: zoneIds } });
 
-    const updatedZones = await Zone.find({ _id: { $in: zoneIds } });
+    await Promise.all(zones.map((zone) => archiveZoneAsCase(zone, "denied", req.user.id)));
+    await Zone.deleteMany({ _id: { $in: zoneIds } });
 
     const io = req.app.get("io");
 
     // Emit events for each denied zone
-    updatedZones.forEach(zone => {
-      io.emit("zone-denied", zone);
+    zones.forEach(zone => {
+      io.emit("zone-denied", { ...zone.toObject(), status: "denied", approved: false });
+      io.emit("zone-deleted", zone._id);
     });
 
-    res.json({ message: `${zones.modifiedCount} zones denied`, zones: updatedZones });
+    res.json({ message: `${zones.length} zones denied and archived as cases`, zones });
 
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -456,22 +519,53 @@ async function bulkResolve(req, res) {
   try {
     const { zoneIds } = req.body;
 
-    const zones = await Zone.updateMany(
-      { _id: { $in: zoneIds }, status: { $ne: "resolved" } },
-      { status: "resolved" }
-    );
+    const zones = await Zone.find({ _id: { $in: zoneIds } });
 
-    const updatedZones = await Zone.find({ _id: { $in: zoneIds } });
+    await Promise.all(zones.map((zone) => archiveZoneAsCase(zone, "resolved", req.user.id)));
+    await Zone.deleteMany({ _id: { $in: zoneIds } });
 
     const io = req.app.get("io");
 
     // Emit events for each resolved zone
-    updatedZones.forEach(zone => {
-      io.emit("zone-resolved", zone);
+    zones.forEach(zone => {
+      io.emit("zone-resolved", { ...zone.toObject(), status: "resolved" });
+      io.emit("zone-deleted", zone._id);
     });
 
-    res.json({ message: `${zones.modifiedCount} zones resolved`, zones: updatedZones });
+    res.json({ message: `${zones.length} zones resolved and archived as cases`, zones });
 
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+
+async function getCases(req, res) {
+  try {
+    const { caseStatus, limit = 50, offset = 0 } = req.query;
+    const filter = {};
+
+    if (caseStatus === "resolved" || caseStatus === "denied") {
+      filter.caseStatus = caseStatus;
+    }
+
+    const cases = await CaseRecord.find(filter)
+      .populate("handledBy", "name email role")
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(parseInt(offset));
+
+    const total = await CaseRecord.countDocuments(filter);
+
+    res.json({
+      cases,
+      total,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > parseInt(offset) + parseInt(limit)
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -493,9 +587,13 @@ async function getAdminDashboard(req, res) {
 
     let filter = {};
 
-    if (status) filter.status = status;
-    if (riskLevel) filter.riskLevel = riskLevel;
-    if (incidentType) filter.incidentType = incidentType;
+    const statusValues = new Set(["pending", "approved", "denied", "resolved", "verified_by_users", "false"]);
+    const riskValues = new Set(["low", "medium", "high"]);
+    const incidentValues = new Set(["accident", "traffic_jam", "crime", "suspicious_activity", "medical_emergency", "natural_disaster", "other"]);
+
+    if (typeof status === "string" && statusValues.has(status)) filter.status = status;
+    if (typeof riskLevel === "string" && riskValues.has(riskLevel)) filter.riskLevel = riskLevel;
+    if (typeof incidentType === "string" && incidentValues.has(incidentType)) filter.incidentType = incidentType;
 
     if (dateFrom || dateTo) {
       filter.createdAt = {};
@@ -558,11 +656,13 @@ module.exports={
   deleteZone,
   approveZone,
   rejectZone,
+  resolveZone,
   pendingZone,
   reportIncident,
   userResponse,
   bulkApprove,
   bulkDeny,
   bulkResolve,
+  getCases,
   getAdminDashboard
 };

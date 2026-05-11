@@ -9,12 +9,14 @@ const {
   deleteZone,
   approveZone,
   rejectZone,
+  resolveZone,
   pendingZone,
   reportIncident,
   userResponse,
   bulkApprove,
   bulkDeny,
   bulkResolve,
+  getCases,
   getAdminDashboard
 } = require("../controllers/zoneController");
 
@@ -43,6 +45,7 @@ router.post("/bulk-resolve", authMiddleware, authorityCheck("authority"), bulkRe
 
 // Admin dashboard with filters
 router.get("/admin-dashboard", authMiddleware, authorityCheck("authority"), getAdminDashboard);
+router.get("/cases", authMiddleware, authorityCheck("authority"), getCases);
 
 router.put("/:id",
   authMiddleware,
@@ -66,6 +69,12 @@ router.patch("/:id/reject",
   authMiddleware,
   authorityCheck("authority"),
   rejectZone
+);
+
+router.patch("/:id/resolve",
+  authMiddleware,
+  authorityCheck("authority"),
+  resolveZone
 );
 
 

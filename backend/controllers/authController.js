@@ -84,7 +84,15 @@ async function loginUser(req,res){
     res.status(200).json({
       message:"Login successful",
       token,
-      refreshToken
+      refreshToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        bio: user.bio || "",
+        avatarUrl: user.avatarUrl || "",
+        role: user.role
+      }
     });
 
   }catch(error){
@@ -175,11 +183,46 @@ async function getCurrentUser(req, res) {
   }
 }
 
+// UPDATE CURRENT USER PROFILE
+async function updateCurrentUser(req, res) {
+  try {
+    const { name, email, bio, avatarUrl } = req.body;
+
+    const update = {};
+    if (typeof name === "string") update.name = name.trim();
+    if (typeof email === "string") update.email = email.trim();
+    if (typeof bio === "string") update.bio = bio;
+    if (typeof avatarUrl === "string") update.avatarUrl = avatarUrl;
+
+    if (update.email) {
+      const existing = await User.findOne({ email: update.email, _id: { $ne: req.user.id } });
+      if (existing) {
+        return res.status(409).json({ message: "Email is already in use" });
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: update },
+      { new: true, runValidators: true }
+    ).select('-password -refreshTokens');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 
 module.exports = {
   registerUser,
   loginUser,
   refreshToken,
   logoutUser,
-  getCurrentUser
+  getCurrentUser,
+  updateCurrentUser
 };

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, X, MapPin, User as UserIcon, LogOut } from "lucide-react";
+import { Menu, X, MapPin, User as UserIcon, LogOut, Archive, Settings } from "lucide-react";
 import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const navLinks = [
   { to: "/", label: "Home" },
-  { to: "/profile", label: "Profile" },
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/notifications", label: "Notifications" },
   { to: "/location", label: "Location" },
 ] as const;
 
@@ -27,9 +28,10 @@ export function Navbar() {
 
   const allNavLinks = [
     { to: "/", label: "Home" },
-    { to: "/profile", label: "Profile" },
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/notifications", label: "Notifications" },
     { to: "/location", label: "Location" },
-    ...(user?.role === "authority" ? [{ to: "/admin", label: "Admin" }] : []),
+    ...(user?.role === "authority" ? [{ to: "/admin", label: "Admin" }, { to: "/cases", label: "Cases" }] : []),
   ];
 
   return (
@@ -53,16 +55,6 @@ export function Navbar() {
               </Link>
             );
           })}
-          {user?.role === "authority" && (
-            <Link
-              to="/admin"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-smooth ${
-                location.pathname === "/admin" ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              Admin
-            </Link>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -87,6 +79,9 @@ export function Navbar() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/profile" className="cursor-pointer"><UserIcon className="h-4 w-4 mr-2" /> Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings" className="cursor-pointer"><Settings className="h-4 w-4 mr-2" /> Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/location" className="cursor-pointer"><MapPin className="h-4 w-4 mr-2" /> Location</Link>

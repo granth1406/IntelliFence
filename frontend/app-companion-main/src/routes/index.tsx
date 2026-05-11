@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Siren, Shield, Radio, MapPin, Users, Map, Activity } from "lucide-react";
+import { ArrowRight, Siren, Shield, Radio, MapPin, Users, Map, Activity, Bell } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { useApp } from "@/context/AppContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,6 +29,96 @@ const features = [
 ];
 
 function LandingPage() {
+  const { isAuthenticated, user, notifications, unreadCount, socket } = useApp();
+
+  if (isAuthenticated) {
+    const recent = notifications.slice(0, 3);
+
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+
+        <section className="relative overflow-hidden bg-gradient-hero">
+          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+              <div>
+                <Badge variant="secondary" className="mb-4">Signed in home</Badge>
+                <h1 className="font-display text-5xl sm:text-6xl font-bold tracking-tight max-w-4xl leading-[1.05]">
+                  Welcome back, <span className="text-gradient">{user?.name ?? "there"}</span>
+                </h1>
+                <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-2xl">
+                  Your account is live. Jump into your dashboard, track your location, or review the latest safety activity.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="hero" size="xl" asChild>
+                  <Link to="/dashboard">Open dashboard <ArrowRight className="h-4 w-4" /></Link>
+                </Button>
+                <Button variant="glass" size="xl" asChild>
+                  <Link to="/location"><MapPin className="h-4 w-4" /> Location</Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mt-10">
+              <MiniStat label="Connection" value={socket?.connected ? "Live" : "Offline"} />
+              <MiniStat label="Unread alerts" value={String(unreadCount)} />
+              <MiniStat label="Total alerts" value={String(notifications.length)} />
+              <MiniStat label="Role" value={user?.role ?? "user"} />
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+          <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <Card className="bg-gradient-card border-border/60">
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex items-center justify-between gap-3 mb-5">
+                  <div>
+                    <h2 className="text-2xl font-bold">What you can do next</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Shortcuts to the live parts of the app.</p>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <ActionCard title="Dashboard" desc="See live status and recent notifications." to="/dashboard" icon={Activity} />
+                  <ActionCard title="Notifications" desc="Review the full live feed." to="/notifications" icon={Bell} />
+                  <ActionCard title="Location" desc="Track your position and nearby zones." to="/location" icon={MapPin} />
+                  <ActionCard title="Profile" desc="Update your account and preferences." to="/profile" icon={Users} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-card border-border/60">
+              <CardContent className="p-6 sm:p-8">
+                <h2 className="text-2xl font-bold">Latest activity</h2>
+                <p className="text-sm text-muted-foreground mt-1">Recent app events are shown here.</p>
+                <div className="mt-5 space-y-3">
+                  {recent.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+                      No activity yet.
+                    </div>
+                  ) : (
+                    recent.map((item) => (
+                      <div key={item.id} className="rounded-2xl border border-border/50 bg-background/40 p-4">
+                        <p className="font-medium">{item.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{item.message}</p>
+                        <p className="mt-2 text-[11px] text-muted-foreground">{item.time}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -164,5 +257,30 @@ function LandingPage() {
 
       <Footer />
     </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="glass rounded-2xl p-4 border border-border/50">
+      <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="mt-2 text-2xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+function ActionCard({ title, desc, to, icon: Icon }: { title: string; desc: string; to: string; icon: any }) {
+  return (
+    <Link to={to} className="group rounded-2xl border border-border/60 bg-background/40 p-4 hover:border-primary/40 hover:bg-background/60 transition-smooth">
+      <div className="flex items-start gap-3">
+        <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-105 transition-smooth">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="font-semibold">{title}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
+        </div>
+      </div>
+    </Link>
   );
 }
