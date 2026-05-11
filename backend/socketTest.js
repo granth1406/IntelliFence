@@ -11,9 +11,9 @@ socket.on("location-update", (data) => {
 });
 
 socket.on("near-zone-alert", (data) => {
-  console.log("⚠ Near zone alert:", data);
+  console.log("Near zone alert:", data);
 });
 
 socket.on("zone-entered", (data) => {
-  console.log("🚨 Zone entered:", data);
+  console.log("Zone entered:", data);
 });

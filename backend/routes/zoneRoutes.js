@@ -9,7 +9,13 @@ const {
   deleteZone,
   approveZone,
   rejectZone,
-  pendingZone
+  pendingZone,
+  reportIncident,
+  userResponse,
+  bulkApprove,
+  bulkDeny,
+  bulkResolve,
+  getAdminDashboard
 } = require("../controllers/zoneController");
 
 const createZoneValidation = require("../middleware/zoneDataValidation.js");
@@ -23,6 +29,20 @@ router.post("/",rateLimiter, createZoneValidation, errorValidation, createZone);
 router.get("/zones",getZones);
 router.get("/incidents",getIncidents);
 router.post("/verify",verifyZone);
+
+// New incident reporting with quick options
+router.post("/report-incident", authMiddleware, rateLimiter, reportIncident);
+
+// User response to alerts
+router.post("/:id/user-response", authMiddleware, userResponse);
+
+// Bulk actions for admin
+router.post("/bulk-approve", authMiddleware, authorityCheck("authority"), bulkApprove);
+router.post("/bulk-deny", authMiddleware, authorityCheck("authority"), bulkDeny);
+router.post("/bulk-resolve", authMiddleware, authorityCheck("authority"), bulkResolve);
+
+// Admin dashboard with filters
+router.get("/admin-dashboard", authMiddleware, authorityCheck("authority"), getAdminDashboard);
 
 router.put("/:id",
   authMiddleware,

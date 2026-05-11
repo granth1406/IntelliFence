@@ -30,8 +30,24 @@ const zoneSchema = new mongoose.Schema({
     default: "medium"
   },
 
+  incidentType: {
+    type: String,
+    enum: ["accident", "traffic_jam", "crime", "suspicious_activity", "medical_emergency", "natural_disaster", "other"],
+    default: "other"
+  },
+
+  approved: {
+    type: Boolean,
+    default: false
+  },
+
   latitude: Number,
   longitude: Number,
+
+  radius: {
+    type: Number,
+    default: 0.003
+  },
 
   coordinates: [
     {
@@ -41,9 +57,17 @@ const zoneSchema = new mongoose.Schema({
     }
   ],
 
+  hexagonVertices: [
+    {
+      latitude: Number,
+      longitude: Number,
+      _id: false
+    }
+  ],
+
   status: {
     type: String,
-    enum:["pending","verified by users","false","resolved"],
+    enum:["pending","approved","denied","resolved","verified_by_users","false"],
     default:"pending"
   },
 
@@ -61,6 +85,23 @@ const zoneSchema = new mongoose.Schema({
       response:{
         type:String,
         enum:["confirm","reject"]
+      }
+    }
+  ],
+
+  userResponses: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      },
+      response: {
+        type: String,
+        enum: ["ok", "not_ok"]
+      },
+      timestamp: {
+        type: Date,
+        default: Date.now
       }
     }
   ],

@@ -25,6 +25,13 @@ export function Navbar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const allNavLinks = [
+    { to: "/", label: "Home" },
+    { to: "/profile", label: "Profile" },
+    { to: "/location", label: "Location" },
+    ...(user?.role === "authority" ? [{ to: "/admin", label: "Admin" }] : []),
+  ];
+
   return (
     <header className="sticky top-0 z-50 w-full">
       <div className="absolute inset-0 glass border-b border-border" />
@@ -32,7 +39,7 @@ export function Navbar() {
         <Logo />
 
         <div className="hidden md:flex items-center gap-1">
-          {navLinks.map((link) => {
+          {allNavLinks.map((link) => {
             const active = location.pathname === link.to;
             return (
               <Link
@@ -46,6 +53,16 @@ export function Navbar() {
               </Link>
             );
           })}
+          {user?.role === "authority" && (
+            <Link
+              to="/admin"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-smooth ${
+                location.pathname === "/admin" ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

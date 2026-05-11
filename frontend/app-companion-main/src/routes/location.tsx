@@ -1,12 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Navigation, Power, Crosshair, AlertTriangle } from "lucide-react";
+import { MapPin, Navigation, Power, Crosshair, AlertTriangle, Plus, Siren, Car, Users, Shield, Zap, CloudRain, HelpCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useApp } from "@/context/AppContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const Route = createFileRoute("/location")({
   head: () => ({
@@ -26,11 +46,32 @@ interface Coords {
 }
 
 function LocationPage() {
-  const { socket, isAuthenticated } = useApp();
+  const { socket, isAuthenticated, user } = useApp();
   const [tracking, setTracking] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+
+  // Incident reporting state
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [incidentType, setIncidentType] = useState("");
+  const [customTitle, setCustomTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [riskLevel, setRiskLevel] = useState("medium");
+  const [reporting, setReporting] = useState(false);
+
+  // User alerts state
+  const [currentAlert, setCurrentAlert] = useState<{
+    zoneId: string;
+    title: string;
+    description: string;
+    incidentType: string;
+  } | null>(null);
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
+
+  // Zone filters
+  const [showApproved, setShowApproved] = useState(true);
+  const [showUnapproved, setShowUnapproved] = useState(true);
 
   // Socket event listeners
   useEffect(() => {
@@ -48,12 +89,33 @@ function LocationPage() {
       });
     };
 
+    const handleUnapprovedZoneAlert = (data: any) => {
+      toast.warning("Unapproved Incident Alert", {
+        description: `${data.title} - ${data.incidentType}`,
+        duration: 10000,
+      });
+    };
+
+    const handleUserResponseRequest = (data: any) => {
+      setCurrentAlert({
+        zoneId: data.zoneId,
+        title: data.title,
+        description: data.description,
+        incidentType: data.incidentType,
+      });
+      setAlertDialogOpen(true);
+    };
+
     socket.on("zone-entered", handleZoneEntered);
     socket.on("near-zone-alert", handleNearZoneAlert);
+    socket.on("unapproved-zone-alert", handleUnapprovedZoneAlert);
+    socket.on("user-response-request", handleUserResponseRequest);
 
     return () => {
       socket.off("zone-entered", handleZoneEntered);
       socket.off("near-zone-alert", handleNearZoneAlert);
+      socket.off("unapproved-zone-alert", handleUnapprovedZoneAlert);
+      socket.off("user-response-request", handleUserResponseRequest);
     };
   }, [socket]);
 
@@ -127,6 +189,130 @@ function LocationPage() {
     });
   };
 
+  const handleReportIncident = async () => {
+    if (!coords) {
+      toast.error("Location not available. Please enable tracking first.");
+      return;
+    }
+
+    if (!incidentType) {
+      toast.error("Please select an incident type");
+      return;
+    }
+
+    setReporting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/zones/report-incident`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          incidentType,
+          title: customTitle || getIncidentTitle(incidentType),
+          description: description || getIncidentDescription(incidentType),
+          latitude: coords.lat,
+          longitude: coords.lng,
+          riskLevel,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to report incident");
+      }
+
+      const data = await response.json();
+      toast.success("Incident reported successfully!", {
+        description: "Authorities have been notified. The incident will be reviewed soon.",
+      });
+
+      // Reset form
+      setIncidentType("");
+      setCustomTitle("");
+      setDescription("");
+      setRiskLevel("medium");
+      setReportDialogOpen(false);
+
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to report incident");
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  const handleUserResponse = async (response: "ok" | "not_ok") => {
+    if (!currentAlert) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const apiResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/zones/${currentAlert.zoneId}/user-response`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ response }),
+      });
+
+      if (!apiResponse.ok) {
+        throw new Error("Failed to submit response");
+      }
+
+      const data = await apiResponse.json();
+      toast.success("Response recorded", {
+        description: `Thank you for your feedback. ${data.okCount} OK, ${data.notOkCount} Not OK responses so far.`,
+      });
+
+      setAlertDialogOpen(false);
+      setCurrentAlert(null);
+
+    } catch (error) {
+      toast.error("Failed to submit response");
+    }
+  };
+
+  const getIncidentTitle = (type: string) => {
+    const titles = {
+      accident: "Traffic Accident Reported",
+      traffic_jam: "Traffic Jam Reported",
+      crime: "Crime Reported",
+      suspicious_activity: "Suspicious Activity Reported",
+      medical_emergency: "Medical Emergency Reported",
+      natural_disaster: "Natural Disaster Reported",
+      other: "Incident Reported",
+    };
+    return titles[type as keyof typeof titles] || "Incident Reported";
+  };
+
+  const getIncidentDescription = (type: string) => {
+    const descriptions = {
+      accident: "A traffic accident has been reported in this area.",
+      traffic_jam: "Heavy traffic congestion reported.",
+      crime: "Criminal activity reported in this area.",
+      suspicious_activity: "Suspicious activity observed.",
+      medical_emergency: "Medical emergency requiring immediate attention.",
+      natural_disaster: "Natural disaster affecting this area.",
+      other: "An incident has been reported in this area.",
+    };
+    return descriptions[type as keyof typeof descriptions] || "An incident has been reported.";
+  };
+
+  const getIncidentIcon = (type: string) => {
+    const icons = {
+      accident: Car,
+      traffic_jam: Car,
+      crime: Shield,
+      suspicious_activity: HelpCircle,
+      medical_emergency: Zap,
+      natural_disaster: CloudRain,
+      other: AlertTriangle,
+    };
+    return icons[type as keyof typeof icons] || AlertTriangle;
+  };
+
   // Free, key-less map embed via OpenStreetMap
   const mapSrc = coords
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.01}%2C${coords.lat - 0.01}%2C${coords.lng + 0.01}%2C${coords.lat + 0.01}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
@@ -172,6 +358,30 @@ function LocationPage() {
                   </span>
                 </div>
               )}
+
+              {/* Zone Filters */}
+              <div className="absolute top-4 right-4 glass rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="approved"
+                    checked={showApproved}
+                    onChange={(e) => setShowApproved(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="approved" className="text-xs">Approved</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="unapproved"
+                    checked={showUnapproved}
+                    onChange={(e) => setShowUnapproved(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="unapproved" className="text-xs">Unapproved</Label>
+                </div>
+              </div>
             </div>
 
             {/* Side panel */}
@@ -187,6 +397,136 @@ function LocationPage() {
                 <Stat label="Longitude" value={coords ? coords.lng.toFixed(6) : "—"} />
                 <Stat label="Accuracy" value={coords ? `±${Math.round(coords.accuracy)} m` : "—"} />
                 <Stat label="Updated" value={coords ? new Date(coords.timestamp).toLocaleTimeString() : "—"} />
+              </Card>
+
+              {/* Incident Reporting */}
+              <Card>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><Siren className="h-4 w-4 text-red-500" /> Report Incident</h3>
+                <p className="text-sm text-muted-foreground mb-4">Report emergencies or incidents in your area.</p>
+                <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive" className="w-full" disabled={!tracking || !coords}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Report Incident
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Report an Incident</DialogTitle>
+                      <DialogDescription>
+                        Help keep your community safe by reporting incidents. Quick options available below.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="incident-type">Incident Type</Label>
+                        <Select value={incidentType} onValueChange={setIncidentType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select incident type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="accident">
+                              <div className="flex items-center gap-2">
+                                <Car className="h-4 w-4" />
+                                Accident
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="traffic_jam">
+                              <div className="flex items-center gap-2">
+                                <Car className="h-4 w-4" />
+                                Traffic Jam
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="crime">
+                              <div className="flex items-center gap-2">
+                                <Shield className="h-4 w-4" />
+                                Crime
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="suspicious_activity">
+                              <div className="flex items-center gap-2">
+                                <HelpCircle className="h-4 w-4" />
+                                Suspicious Activity
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="medical_emergency">
+                              <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4" />
+                                Medical Emergency
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="natural_disaster">
+                              <div className="flex items-center gap-2">
+                                <CloudRain className="h-4 w-4" />
+                                Natural Disaster
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="other">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                Other
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {incidentType === "other" && (
+                        <div>
+                          <Label htmlFor="custom-title">Title</Label>
+                          <Input
+                            id="custom-title"
+                            value={customTitle}
+                            onChange={(e) => setCustomTitle(e.target.value)}
+                            placeholder="Brief title for the incident"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <Label htmlFor="description">Description (Optional)</Label>
+                        <Textarea
+                          id="description"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Additional details about the incident"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="risk-level">Risk Level</Label>
+                        <Select value={riskLevel} onValueChange={setRiskLevel}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low Risk</SelectItem>
+                            <SelectItem value="medium">Medium Risk</SelectItem>
+                            <SelectItem value="high">High Risk</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex gap-2 pt-4">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => setReportDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          className="flex-1"
+                          onClick={handleReportIncident}
+                          disabled={reporting || !incidentType}
+                        >
+                          {reporting ? "Reporting..." : "Report"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </Card>
 
               <Card>
@@ -212,6 +552,51 @@ function LocationPage() {
               )}
             </div>
           </div>
+
+          {/* User Alert Dialog */}
+          <Dialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  Safety Check
+                </DialogTitle>
+                <DialogDescription>
+                  You've entered or are near a reported incident area. Are you okay?
+                </DialogDescription>
+              </DialogHeader>
+
+              {currentAlert && (
+                <Alert>
+                  <getIncidentIcon className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>{currentAlert.title}</strong><br />
+                    {currentAlert.description}<br />
+                    <Badge variant="outline" className="mt-2">{currentAlert.incidentType}</Badge>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  className="flex-1"
+                  onClick={() => handleUserResponse("ok")}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  I'm OK
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => handleUserResponse("not_ok")}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Need Help
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
       <Footer />
