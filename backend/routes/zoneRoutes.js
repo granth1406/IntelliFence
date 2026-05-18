@@ -17,7 +17,8 @@ const {
   bulkDeny,
   bulkResolve,
   getCases,
-  getAdminDashboard
+  getAdminDashboard,
+  getUserReports
 } = require("../controllers/zoneController");
 
 const createZoneValidation = require("../middleware/zoneDataValidation.js");
@@ -37,6 +38,9 @@ router.post("/report-incident", authMiddleware, rateLimiter, reportIncident);
 
 // User response to alerts
 router.post("/:id/user-response", authMiddleware, userResponse);
+
+// Get user's reports
+router.get("/user-reports", authMiddleware, getUserReports);
 
 // Bulk actions for admin
 router.post("/bulk-approve", authMiddleware, authorityCheck("authority"), bulkApprove);

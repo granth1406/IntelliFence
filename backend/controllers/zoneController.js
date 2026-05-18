@@ -1,4 +1,4 @@
-const Zone = require("../models/Zone");
+﻿const Zone = require("../models/Zone");
 const User = require("../models/User");
 const Location = require("../models/Location");
 const CaseRecord = require("../models/CaseRecord");
@@ -647,7 +647,38 @@ async function getAdminDashboard(req, res) {
 }
 
 
+
+
+const getUserReports = async (req, res) => {
+  try {
+    const { status, incidentType, limit = 20, offset = 0 } = req.query;
+    const query = { createdBy: req.user.id };
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (incidentType && incidentType !== 'all') {
+      query.incidentType = incidentType;
+    }
+
+    const total = await Zone.countDocuments(query);
+    const reports = await Zone.find(query)
+      .sort({ createdAt: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit));
+
+    const hasMore = parseInt(offset) + reports.length < total;
+
+    res.status(200).json({ reports, total, hasMore });
+  } catch (error) {
+    console.error('Error in getUserReports:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 module.exports={
+  getUserReports,
   createZone,
   getZones,
   getIncidents,

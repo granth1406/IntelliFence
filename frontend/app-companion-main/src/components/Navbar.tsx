@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, X, MapPin, User as UserIcon, LogOut, Archive, Settings } from "lucide-react";
+import { Menu, X, MapPin, FileText, User as UserIcon, LogOut, Archive, Settings } from "lucide-react";
 import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function Navbar() {
     { to: "/dashboard", label: "Dashboard" },
     { to: "/notifications", label: "Notifications" },
     { to: "/location", label: "Location" },
+    { to: "/reports", label: "Reports" },
     ...(user?.role === "authority" ? [{ to: "/admin", label: "Admin" }, { to: "/cases", label: "Cases" }] : []),
   ];
 
@@ -83,8 +84,11 @@ export function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link to="/settings" className="cursor-pointer"><Settings className="h-4 w-4 mr-2" /> Settings</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                                    <DropdownMenuItem asChild>
                     <Link to="/location" className="cursor-pointer"><MapPin className="h-4 w-4 mr-2" /> Location</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/reports" className="cursor-pointer"><FileText className="h-4 w-4 mr-2" /> Reports</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive">
@@ -137,3 +141,11 @@ export function Navbar() {
     </header>
   );
 }
+
+
+
+
+
+
+
+
