@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useEffect } from "react";
 import { Activity, Bell, MapPin, Shield, Users, ArrowRight, Radio, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -20,34 +20,23 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardPage() {
   const { user, isAuthenticated, socket, notifications, unreadCount } = useApp();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate({ to: "/login" });
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const recentNotifications = useMemo(() => notifications.slice(0, 5), [notifications]);
   const unreadWarnings = useMemo(() => notifications.filter((n) => !n.read && n.type === "warning").length, [notifications]);
   const successCount = useMemo(() => notifications.filter((n) => n.type === "success").length, [notifications]);
   const liveStatus = socket?.connected ? "Live" : "Offline";
   const nextAction = unreadCount > 0 ? "Review notifications" : "Check your location";
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center px-4">
-          <div className="max-w-md w-full glass rounded-3xl p-8 text-center">
-            <Badge variant="secondary" className="mb-4">Sign in required</Badge>
-            <h1 className="text-3xl font-bold">Your live dashboard</h1>
-            <p className="mt-3 text-muted-foreground">
-              Sign in to see your safety feed, live alerts, and account activity.
-            </p>
-            <div className="mt-6 flex gap-3 justify-center">
-              <Button asChild variant="hero"><Link to="/login">Sign in</Link></Button>
-              <Button asChild variant="outline"><Link to="/signup">Create account</Link></Button>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col">

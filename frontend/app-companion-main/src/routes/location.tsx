@@ -216,15 +216,20 @@ function LocationPage() {
             permanent: false,
           });
 
+          const reportedTime = z.createdAt ? new Date(z.createdAt).toLocaleString() : 'Time not available';
+
           polygon.bindPopup(`
             <div style="min-width: 220px; max-width: 280px;">
               <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 6px;">Incident Info</div>
               <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">${escapeHtml(incidentTitle)}</div>
               <div style="font-size: 13px; line-height: 1.5; margin-bottom: 10px; color: #374151;">${escapeHtml(incidentDescription)}</div>
-              <div style="display:flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #4b5563;">
+              <div style="display:flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #4b5563; margin-bottom: 8px;">
                 <span><strong>Type:</strong> ${escapeHtml(incidentTypeLabel)}</span>
                 <span><strong>Risk:</strong> ${escapeHtml(String(z.riskLevel || 'medium'))}</span>
                 <span><strong>Status:</strong> ${escapeHtml(String(z.status || 'pending'))}</span>
+              </div>
+              <div style="padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+                <strong>Reported:</strong> ${escapeHtml(reportedTime)}
               </div>
             </div>
           `);

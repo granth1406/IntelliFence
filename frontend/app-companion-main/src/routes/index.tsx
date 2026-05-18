@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Siren, Shield, Radio, MapPin, Users, Map, Activity, Bell } from "lucide-react";
+import { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,16 @@ const features = [
 
 function LandingPage() {
   const { isAuthenticated, user, notifications, unreadCount, socket } = useApp();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate({ to: "/dashboard" });
+    }
+  }, [isAuthenticated, navigate]);
 
   if (isAuthenticated) {
+    return null;
     const recent = notifications.slice(0, 3);
 
     return (

@@ -9,9 +9,9 @@ const INCIDENT_RADIUS = {
   accident: 0.001,
   traffic_jam: 0.002,
   crime: 0.003,
-  suspicious_activity: 0.002,
-  medical_emergency: 0.004,
-  natural_disaster: 0.01,
+  suspicious_activity: 0.001,
+  medical_emergency: 0.0001,
+  natural_disaster: 1,
   other: 0.003
 };
 

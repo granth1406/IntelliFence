@@ -57,7 +57,8 @@ function SignupPage() {
     try {
       await signup(values.name, values.email, values.password);
       toast.success("Account created. Welcome aboard!");
-      navigate({ to: "/profile" });
+      // New users default to user role, route to dashboard
+      navigate({ to: "/dashboard" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Registration failed");
     }

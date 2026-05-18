@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'authority'],
         default: 'user'
     },
+    settings: {
+        pushAlerts: { type: Boolean, default: true },
+        emailSummary: { type: Boolean, default: false },
+        autoOpenMap: { type: Boolean, default: true },
+        compactMode: { type: Boolean, default: false }
+    },
     refreshTokens: [{
         token: String,
         createdAt: { type: Date, default: Date.now }

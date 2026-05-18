@@ -24,8 +24,8 @@ interface AppContextValue {
   // Auth
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (name: string, email: string, password: string) => Promise<User>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => void;
 
@@ -206,6 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const userData = data.user ?? { name: email.split("@")[0], email };
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
+    return userData;
   }, []);
 
   const signup = useCallback(async (name: string, email: string, password: string) => {
@@ -224,7 +225,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const data = await response.json();
     // After signup, automatically log in
-    await login(email, password);
+    return await login(email, password);
   }, [login]);
 
   const logout = useCallback(() => {

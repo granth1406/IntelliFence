@@ -9,5 +9,7 @@ router.post('/refresh', authController.refreshToken);
 router.post('/logout', authController.logoutUser);
 router.get('/me', authMiddleware, authController.getCurrentUser);
 router.put('/me', authMiddleware, authController.updateCurrentUser);
+router.get('/settings', authMiddleware, authController.getSettings);
+router.put('/settings', authMiddleware, authController.updateSettings);
 
 module.exports = router;

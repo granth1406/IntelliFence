@@ -37,9 +37,11 @@ function LoginPage() {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      await login(values.email, values.password);
+      const userData = await login(values.email, values.password);
       toast.success("Welcome back!");
-      navigate({ to: "/profile" });
+      // Route based on user role
+      const role = userData?.role || "user";
+      navigate({ to: role === "authority" ? "/admin" : "/dashboard" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Login failed");
     }

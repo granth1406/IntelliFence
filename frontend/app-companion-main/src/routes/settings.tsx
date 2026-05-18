@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BellRing, Shield, Smartphone, MoonStar, Save, Settings as SettingsIcon, LockKeyhole } from "lucide-react";
 import { toast } from "sonner";
@@ -31,7 +31,9 @@ const STORAGE_KEY = "intellifence_settings";
 
 function SettingsPage() {
   const { isAuthenticated, user } = useApp();
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<SettingsState>({
     pushAlerts: true,
     emailSummary: false,
@@ -39,43 +41,125 @@ function SettingsPage() {
     compactMode: false,
   });
 
+  // Redirect unauthenticated users
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setSettings((prev) => ({ ...prev, ...JSON.parse(stored) }));
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
+    if (!isAuthenticated) {
+      navigate({ to: "/login" });
     }
-  }, []);
+  }, [isAuthenticated, navigate]);
+
+  // Load settings from backend
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const fetchSettings = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/settings`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSettings((prev) => ({ ...prev, ...data.settings }));
+        } else {
+          // Fall back to localStorage if backend doesn't have settings
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            try {
+              setSettings((prev) => ({ ...prev, ...JSON.parse(stored) }));
+            } catch {
+              localStorage.removeItem(STORAGE_KEY);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+        // Fall back to localStorage
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try {
+            setSettings((prev) => ({ ...prev, ...JSON.parse(stored) }));
+          } catch {
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [isAuthenticated]);
 
   const updateSetting = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
     setSaving(true);
     try {
+      const token = localStorage.getItem("token");
+      
+      // Try to save to backend
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ settings }),
+      });
+
+      if (!response.ok) {
+        // If backend fails, still save locally
+        throw new Error("Failed to save to backend");
+      }
+
+      // Also save locally as backup
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       toast.success("Settings saved");
+      
+      // Apply compact mode to document
+      if (settings.compactMode) {
+        document.documentElement.classList.add("compact-mode");
+      } else {
+        document.documentElement.classList.remove("compact-mode");
+      }
+    } catch (error) {
+      // Save locally if backend fails
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        toast.success("Settings saved locally");
+        
+        // Apply compact mode to document
+        if (settings.compactMode) {
+          document.documentElement.classList.add("compact-mode");
+        } else {
+          document.documentElement.classList.remove("compact-mode");
+        }
+      } catch {
+        toast.error("Failed to save settings");
+      }
     } finally {
       setSaving(false);
     }
   };
 
   if (!isAuthenticated) {
+    return null;
+  }
+
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center px-4">
-          <div className="max-w-md glass rounded-3xl p-10 text-center">
-            <SettingsIcon className="h-10 w-10 mx-auto text-primary" />
-            <h1 className="mt-4 text-2xl font-bold">Sign in required</h1>
-            <p className="mt-2 text-muted-foreground">Open your settings after signing in.</p>
-            <Button asChild variant="hero" className="mt-6">
-              <Link to="/login">Sign in</Link>
-            </Button>
+          <div className="text-center">
+            <div className="h-12 w-12 rounded-full bg-primary/20 mx-auto mb-4 animate-pulse" />
+            <p className="text-muted-foreground">Loading settings…</p>
           </div>
         </main>
         <Footer />
@@ -140,7 +224,7 @@ function SettingsPage() {
           </Card>
 
           <div className="flex justify-end">
-            <Button onClick={saveSettings} variant="hero" disabled={saving}>
+            <Button onClick={saveSettings} variant="hero" disabled={saving || loading}>
               <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save settings"}
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Shield, CheckCircle, XCircle, Clock, AlertTriangle, Filter, MoreHorizontal, Users, MapPin, Archive } from "lucide-react";
 import { toast } from "sonner";
@@ -71,6 +71,7 @@ interface DashboardStats {
 
 function AdminDashboard() {
   const { user, socket, isAuthenticated } = useApp();
+  const navigate = useNavigate();
   const [zones, setZones] = useState<Zone[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalZones: 0,
@@ -89,14 +90,19 @@ function AdminDashboard() {
     offset: 0,
   });
 
-  // Check if user is authority/admin
+  // Check if user is authority/admin and redirect if not
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== "authority") {
+    if (!isAuthenticated) {
+      navigate({ to: "/login" });
+      return;
+    }
+    if (user?.role !== "authority") {
       toast.error("Access denied. Authority access required.");
+      navigate({ to: "/dashboard" });
       return;
     }
     fetchDashboard();
-  }, [isAuthenticated, user, filters]);
+  }, [isAuthenticated, user, filters, navigate]);
 
   // Socket listeners for real-time updates
   useEffect(() => {
@@ -261,22 +267,12 @@ function AdminDashboard() {
     });
   };
 
-  if (!isAuthenticated || user?.role !== "authority") {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center max-w-md glass rounded-2xl p-10">
-            <h1 className="text-2xl font-bold">Access Denied</h1>
-            <p className="text-muted-foreground mt-2 mb-6">Authority access required for this dashboard.</p>
-            <Button variant="hero" asChild>
-              <a href="/">Go Home</a>
-            </Button>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (user?.role !== "authority") {
+    return null;
   }
 
   return (

@@ -11,8 +11,8 @@ async function registerUser(req,res){
     const existingUser = await User.findOne({email});
 
     if(existingUser){
-      return res.status(409).json({
-        message:"User already exists"
+      return res.status(400).json({
+        message:"Enter valid email address"
       });
     }
 
@@ -217,6 +217,50 @@ async function updateCurrentUser(req, res) {
   }
 }
 
+// GET USER SETTINGS
+async function getSettings(req, res) {
+  try {
+    const user = await User.findById(req.user.id).select('settings');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ settings: user.settings });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+// UPDATE USER SETTINGS
+async function updateSettings(req, res) {
+  try {
+    const { settings } = req.body;
+
+    if (!settings || typeof settings !== "object") {
+      return res.status(400).json({ message: "Invalid settings format" });
+    }
+
+    const update = {};
+    if (typeof settings.pushAlerts === "boolean") update["settings.pushAlerts"] = settings.pushAlerts;
+    if (typeof settings.emailSummary === "boolean") update["settings.emailSummary"] = settings.emailSummary;
+    if (typeof settings.autoOpenMap === "boolean") update["settings.autoOpenMap"] = settings.autoOpenMap;
+    if (typeof settings.compactMode === "boolean") update["settings.compactMode"] = settings.compactMode;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: update },
+      { new: true, runValidators: true }
+    ).select('settings');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ settings: user.settings });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 
 module.exports = {
   registerUser,
@@ -224,5 +268,7 @@ module.exports = {
   refreshToken,
   logoutUser,
   getCurrentUser,
-  updateCurrentUser
+  updateCurrentUser,
+  getSettings,
+  updateSettings
 };

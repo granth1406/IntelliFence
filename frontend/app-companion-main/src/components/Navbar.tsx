@@ -27,7 +27,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const allNavLinks = [
-    { to: "/", label: "Home" },
+    ...(isAuthenticated ? [] : [{ to: "/", label: "Home" }]),
     { to: "/dashboard", label: "Dashboard" },
     { to: "/notifications", label: "Notifications" },
     { to: "/location", label: "Location" },
@@ -116,7 +116,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div className="md:hidden glass border-b border-border px-4 py-4 space-y-1">
-          {navLinks.map((link) => (
+          {allNavLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
