@@ -249,17 +249,17 @@ function SettingRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-background/40 p-4">
-      <div className="flex items-start gap-3">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-border/60 bg-background/40 p-4">
+      <div className="flex items-start gap-3 min-w-0">
         <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
           <Icon className="h-5 w-5" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="font-medium">{title}</p>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch checked={checked} onCheckedChange={onCheckedChange} className="self-start sm:self-auto" />
     </div>
   );
 }

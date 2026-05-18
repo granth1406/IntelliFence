@@ -140,7 +140,7 @@ function CasesPage() {
         </section>
 
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid gap-6 md:grid-cols-3 mb-8">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 mb-8">
             <StatCard title="Archived cases" value={String(total)} icon={Archive} />
             <StatCard title="Resolved cases" value={String(records.filter((r) => r.caseStatus === "resolved").length)} icon={Shield} />
             <StatCard title="Denied cases" value={String(records.filter((r) => r.caseStatus === "denied").length)} icon={BadgeAlert} />

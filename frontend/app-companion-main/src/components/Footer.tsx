@@ -6,8 +6,8 @@ export function Footer() {
   return (
     <footer className="relative border-t border-border mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+          <div className="sm:col-span-2 lg:col-span-2">
             <Logo />
             <p className="mt-4 text-sm text-muted-foreground max-w-sm">
               The modern platform for teams that move fast. Beautifully designed, ridiculously powerful.

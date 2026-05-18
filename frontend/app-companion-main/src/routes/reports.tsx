@@ -167,7 +167,7 @@ function ReportsPage() {
         </section>
 
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid gap-6 md:grid-cols-4 mb-8">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4 mb-8">
             <StatCard title="Total reports" value={String(stats.total)} icon={FileText} />
             <StatCard title="Pending review" value={String(stats.pending)} icon={Clock} />
             <StatCard title="Approved" value={String(stats.approved)} icon={CheckCircle} />

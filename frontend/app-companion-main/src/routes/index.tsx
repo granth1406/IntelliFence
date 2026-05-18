@@ -1,6 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Siren, Shield, Radio, MapPin, Users, Map, Activity, Bell } from "lucide-react";
-import { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -31,16 +30,7 @@ const features = [
 
 function LandingPage() {
   const { isAuthenticated, user, notifications, unreadCount, socket } = useApp();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate({ to: "/dashboard" });
-    }
-  }, [isAuthenticated, navigate]);
-
   if (isAuthenticated) {
-    return null;
     const recent = notifications.slice(0, 3);
 
     return (
@@ -175,7 +165,7 @@ function LandingPage() {
                   </div>
                   <span className="ml-3 text-xs text-muted-foreground">dashboard.intellifence.app/live</span>
                 </div>
-                <div className="grid grid-cols-3 gap-4 p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-6">
                   {[
                     { Icon: Users, label: "Active users", value: "1,284" },
                     { Icon: Siren, label: "Open incidents", value: "07" },
@@ -233,7 +223,7 @@ function LandingPage() {
             It combines live location, geo-fencing, and centralized incident management into one reliable, rule-based system that scales.
           </p>
 
-          <div className="grid grid-cols-3 gap-6 mt-16 max-w-3xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16 max-w-3xl mx-auto">
             {[
               { num: "<2s", label: "Alert latency" },
               { num: "24/7", label: "Live monitoring" },
@@ -251,7 +241,7 @@ function LandingPage() {
       {/* CTA */}
       <section className="py-24">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative bg-gradient-primary rounded-3xl p-12 sm:p-16 text-center overflow-hidden shadow-elegant">
+          <div className="relative bg-gradient-primary rounded-3xl p-8 sm:p-12 lg:p-16 text-center overflow-hidden shadow-elegant">
             <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:24px_24px]" />
             <div className="relative">
               <h2 className="text-4xl sm:text-5xl font-bold text-primary-foreground tracking-tight">Be ready before the next emergency.</h2>

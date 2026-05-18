@@ -535,14 +535,14 @@ function LocationPage() {
               <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Where in the world</h1>
               <p className="mt-2 text-muted-foreground">Privacy-first location tracking. You're in control.</p>
             </div>
-            <div className="flex items-center gap-3 glass rounded-xl px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 glass rounded-xl px-4 py-3 w-full sm:w-auto">
               <div className={`h-2.5 w-2.5 rounded-full ${tracking ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
               <span className="text-sm font-medium">{tracking ? "Tracking on" : "Idle"}</span>
               <Switch checked={tracking} onCheckedChange={handleToggle} />
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid gap-6 lg:grid-cols-3">
             {/* Map */}
             <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant aspect-[16/11]">
               {coords ? (

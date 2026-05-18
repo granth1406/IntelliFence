@@ -72,7 +72,7 @@ function SignupPage() {
         <Field label="Password" icon={<Lock className="h-4 w-4" />} type="password" placeholder="••••••••" error={errors.password?.message} {...register("password")} />
 
         {pwd.length > 0 && (
-          <ul className="grid grid-cols-2 gap-1.5 text-xs">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
             {checks.map((c) => (
               <li key={c.label} className={`flex items-center gap-1.5 ${c.ok ? "text-success" : "text-muted-foreground"}`}>
                 <CheckCircle2 className={`h-3.5 w-3.5 ${c.ok ? "opacity-100" : "opacity-40"}`} /> {c.label}

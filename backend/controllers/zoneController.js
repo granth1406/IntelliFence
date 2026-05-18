@@ -649,33 +649,38 @@ async function getAdminDashboard(req, res) {
 
 
 
-const getUserReports = async (req, res) => {
+// Get user's own reports
+async function getUserReports(req, res) {
   try {
     const { status, incidentType, limit = 20, offset = 0 } = req.query;
-    const query = { createdBy: req.user.id };
 
-    if (status && status !== 'all') {
+    let query = { createdBy: req.user.id };
+
+    if (status && status !== "all") {
       query.status = status;
     }
 
-    if (incidentType && incidentType !== 'all') {
+    if (incidentType && incidentType !== "all") {
       query.incidentType = incidentType;
     }
 
     const total = await Zone.countDocuments(query);
     const reports = await Zone.find(query)
       .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
       .skip(parseInt(offset))
-      .limit(parseInt(limit));
+      .populate("createdBy", "name email")
+      .lean();
 
-    const hasMore = parseInt(offset) + reports.length < total;
-
-    res.status(200).json({ reports, total, hasMore });
+    res.status(200).json({
+      reports,
+      total,
+      hasMore: total > parseInt(offset) + parseInt(limit)
+    });
   } catch (error) {
-    console.error('Error in getUserReports:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: error.message });
   }
-};
+}
 
 module.exports={
   getUserReports,

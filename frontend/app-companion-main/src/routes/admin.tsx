@@ -297,7 +297,7 @@ function AdminDashboard() {
 
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Stats Cards */}
-          <div className="grid gap-6 md:grid-cols-5 mb-8">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5 mb-8">
             <StatCard title="Total zones" value={String(stats.totalZones)} icon={AlertTriangle} />
             <StatCard title="Pending" value={String(stats.pendingCount)} icon={Clock} />
             <StatCard title="Approved" value={String(stats.approvedCount)} icon={CheckCircle} />
@@ -392,7 +392,8 @@ function AdminDashboard() {
                   <Button variant="outline" onClick={resetFilters}>Show all records</Button>
                 </div>
               ) : (
-                <Table>
+                <div className="overflow-x-auto">
+                <Table className="min-w-[980px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">
@@ -486,6 +487,7 @@ function AdminDashboard() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
