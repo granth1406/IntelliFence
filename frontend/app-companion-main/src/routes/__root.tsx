@@ -61,7 +61,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="bg-gradient-hero text-foreground">
+        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-gradient-hero">
+          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+        </div>
         {children}
         <Scripts />
       </body>

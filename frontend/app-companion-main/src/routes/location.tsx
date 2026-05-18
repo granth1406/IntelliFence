@@ -1,7 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { MapPin, Navigation, Power, Crosshair, AlertTriangle, Plus, Siren, Car, Users, Shield, Zap, CloudRain, HelpCircle, CheckCircle } from "lucide-react";
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Car,
+  CheckCircle,
+  CloudRain,
+  Crosshair,
+  HelpCircle,
+  History,
+  Map,
+  MapPin,
+  Navigation,
+  Plus,
+  Power,
+  Route as RouteIcon,
+  Shield,
+  Siren,
+  Wifi,
+  WifiOff,
+  Zap,
+} from "lucide-react";
+import "leaflet/dist/leaflet.css";
 // Leaflet requires `window` and must only be imported on the client.
 // We'll dynamically load it inside effects to avoid SSR errors.
 const leafletRef = { current: null } as any;
@@ -31,6 +50,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export const Route = createFileRoute("/location")({
   head: () => ({
@@ -49,10 +69,98 @@ interface Coords {
   timestamp: number;
 }
 
+const LAST_KNOWN_LOCATION_KEY = "intellifence:last-known-location";
+const LOCATION_HISTORY_KEY = "intellifence:location-history";
+const MAX_HISTORY_POINTS = 10;
+const MAX_NEARBY_ZONES = 5;
+
+type NearbyZone = {
+  zone: any;
+  distanceKm: number;
+  distanceLabel: string;
+};
+
+function haversineDistanceKm(a: Pick<Coords, "lat" | "lng">, b: Pick<Coords, "lat" | "lng">) {
+  const earthRadiusKm = 6371;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const deltaLat = toRadians(b.lat - a.lat);
+  const deltaLng = toRadians(b.lng - a.lng);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+
+  const halfChord =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(halfChord), Math.sqrt(1 - halfChord));
+}
+
+function getZoneCenter(zone: any) {
+  if (Number.isFinite(zone?.latitude) && Number.isFinite(zone?.longitude)) {
+    return { lat: Number(zone.latitude), lng: Number(zone.longitude) };
+  }
+
+  const vertices = Array.isArray(zone?.vertices) ? zone.vertices : [];
+  const validPoints = vertices
+    .map((point: any) => {
+      const lat = Array.isArray(point) ? Number(point[0]) : Number(point?.lat ?? point?.latitude);
+      const lng = Array.isArray(point) ? Number(point[1]) : Number(point?.lng ?? point?.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+    })
+    .filter(Boolean) as Array<{ lat: number; lng: number }>;
+
+  if (validPoints.length === 0) {
+    return null;
+  }
+
+  const sum = validPoints.reduce(
+    (acc, point) => ({ lat: acc.lat + point.lat, lng: acc.lng + point.lng }),
+    { lat: 0, lng: 0 }
+  );
+
+  return {
+    lat: sum.lat / validPoints.length,
+    lng: sum.lng / validPoints.length,
+  };
+}
+
+function formatDistance(distanceKm: number) {
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)} m`;
+  }
+
+  return `${distanceKm.toFixed(1)} km`;
+}
+
 function LocationPage() {
-  const { socket, isAuthenticated, user } = useApp();
+  const { socket, isAuthenticated } = useApp();
   const [tracking, setTracking] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [lastKnownCoords, setLastKnownCoords] = useState<Coords | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    try {
+      const saved = window.localStorage.getItem(LAST_KNOWN_LOCATION_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [tripHistory, setTripHistory] = useState<Coords[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    try {
+      const saved = window.localStorage.getItem(LOCATION_HISTORY_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
@@ -77,12 +185,88 @@ function LocationPage() {
   const [showApproved, setShowApproved] = useState(true);
   const [showUnapproved, setShowUnapproved] = useState(true);
   const [zonesOnMap, setZonesOnMap] = useState<any[]>([]);
+  const [openAccordion, setOpenAccordion] = useState<string | null>("status");
 
-  // compute hexagon vertices (approx, using degrees radius stored in zone.radius)
+  const handleAccordionActivate = (value: string) => {
+    setOpenAccordion((prev) => (prev === value ? prev : value));
+  };
+
+  const displayCoords = coords ?? lastKnownCoords;
+
+  const nearbyZones = useMemo<NearbyZone[]>(() => {
+    if (!displayCoords) {
+      return [];
+    }
+
+    return zonesOnMap
+      .map((zone) => {
+        const center = getZoneCenter(zone);
+        if (!center) {
+          return null;
+        }
+
+        const distanceKm = haversineDistanceKm(displayCoords, center);
+        return {
+          zone,
+          distanceKm,
+          distanceLabel: formatDistance(distanceKm),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, MAX_NEARBY_ZONES) as NearbyZone[];
+  }, [displayCoords, zonesOnMap]);
+
+  const safetySnapshot = useMemo(() => {
+    if (!displayCoords) {
+      return {
+        tone: "neutral" as const,
+        label: isOnline ? "Waiting for location" : "Offline",
+        description: isOnline
+          ? "Enable tracking to calculate nearby safety status."
+          : "You're offline. Showing the last known location if available.",
+      };
+    }
+
+    if (nearbyZones.length === 0) {
+      return {
+        tone: "safe" as const,
+        label: "Safe",
+        description: "No nearby zones are close enough to raise a caution.",
+      };
+    }
+
+    const nearestZone = nearbyZones[0];
+    const riskLevelValue = String(nearestZone.zone?.riskLevel || "low");
+    const isHighRisk = riskLevelValue === "high";
+
+    if (nearestZone.distanceKm <= 0.35 || (isHighRisk && nearestZone.distanceKm <= 0.8)) {
+      return {
+        tone: "danger" as const,
+        label: "High risk",
+        description: `${nearestZone.zone?.title || "A zone"} is very close and marked ${riskLevelValue} risk.`,
+      };
+    }
+
+    if (nearestZone.distanceKm <= 1.25 || riskLevelValue === "medium") {
+      return {
+        tone: "caution" as const,
+        label: "Caution",
+        description: `${nearestZone.zone?.title || "A zone"} is nearby. Keep an eye on the map and alerts.`,
+      };
+    }
+
+    return {
+      tone: "safe" as const,
+      label: "Safe",
+      description: "You are away from the closest monitored zones.",
+    };
+  }, [displayCoords, nearbyZones, isOnline]);
+
   const computeHexagon = (lat: number, lng: number, radius: number) => {
     const pts: [number, number][] = [];
     for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i; // 60deg steps
+      const angle = (Math.PI / 3) * i;
       const dLat = radius * Math.sin(angle);
       const dLng = radius * Math.cos(angle) / Math.cos((lat * Math.PI) / 180);
       pts.push([lat + dLat, lng + dLng]);
@@ -91,20 +275,52 @@ function LocationPage() {
   };
 
   const riskColor = (risk: string) => {
-    if (risk === 'high') return 'rgba(220,38,38,0.35)'; // red
-    if (risk === 'medium') return 'rgba(234,179,8,0.28)'; // yellow
-    return 'rgba(16,185,129,0.22)'; // green
+    if (risk === "high") return "rgba(220,38,38,0.35)";
+    if (risk === "medium") return "rgba(234,179,8,0.28)";
+    return "rgba(16,185,129,0.22)";
   };
 
   const escapeHtml = (value: string) =>
     value
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
 
-  // fetch zones to render on map
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!coords) {
+      return;
+    }
+
+    setLastKnownCoords(coords);
+    setTripHistory((previous) => {
+      const nextHistory = [...previous, coords].slice(-MAX_HISTORY_POINTS);
+
+      try {
+        window.localStorage.setItem(LAST_KNOWN_LOCATION_KEY, JSON.stringify(coords));
+        window.localStorage.setItem(LOCATION_HISTORY_KEY, JSON.stringify(nextHistory));
+      } catch {
+        // Ignore storage issues and keep the page usable.
+      }
+
+      return nextHistory;
+    });
+  }, [coords]);
+
   useEffect(() => {
     let mounted = true;
     const fetchZones = async () => {
@@ -130,93 +346,95 @@ function LocationPage() {
 
         if (!mounted) return;
 
-        // normalize zones to include vertices
         const normalized = results.map((z: any) => {
           if (z.hexagonVertices && z.hexagonVertices.length) {
             return { ...z, vertices: z.hexagonVertices.map((v: any) => [v.latitude, v.longitude]) };
           }
-          // fallback compute
-          const r = z.radius || 0.003;
-          return { ...z, vertices: computeHexagon(z.latitude, z.longitude, r) };
+          const radius = z.radius || 0.003;
+          return { ...z, vertices: computeHexagon(z.latitude, z.longitude, radius) };
         });
 
         setZonesOnMap(normalized);
-        try { console.debug('Fetched zones for map', results.length, normalized); } catch (e) { }
       } catch (err) {
-        console.error('Failed to fetch zones for map', err);
+        console.error("Failed to fetch zones for map", err);
       }
     };
 
     fetchZones();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [showApproved, showUnapproved]);
 
-  // Leaflet map init and updates
   const mapRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const zonesLayerRef = useRef<any>(null);
   const LRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!coords) return;
+    if (!displayCoords) return;
 
-    // dynamically import Leaflet on the client
     const init = async () => {
       if (!LRef.current) {
-        const Leaflet = await import('leaflet');
+        const Leaflet = await import("leaflet");
         LRef.current = Leaflet.default || Leaflet;
       }
 
       const L = LRef.current;
 
-      // initialize map if needed
       if (!mapRef.current) {
-        mapRef.current = L.map('map', { center: [coords.lat, coords.lng], zoom: 15, preferCanvas: true });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        mapRef.current = L.map("map", { center: [displayCoords.lat, displayCoords.lng], zoom: 15, preferCanvas: true });
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
-          attribution: '&copy; OpenStreetMap'
+          attribution: "&copy; OpenStreetMap",
         }).addTo(mapRef.current);
       } else {
-        mapRef.current.setView([coords.lat, coords.lng], 15);
+        mapRef.current.setView([displayCoords.lat, displayCoords.lng], 15);
       }
 
-      // ensure we have a dedicated layer group for zones so we can clear safely
       if (!zonesLayerRef.current) {
         zonesLayerRef.current = L.layerGroup().addTo(mapRef.current);
       } else {
-        try { zonesLayerRef.current.clearLayers(); } catch (e) { }
+        try {
+          zonesLayerRef.current.clearLayers();
+        } catch {
+          // Ignore layer clear errors.
+        }
       }
 
-    // draw zones into the zones layer group
-      try { console.debug('Rendering zones on map', zonesOnMap.length, zonesOnMap); } catch (e) { }
-      zonesOnMap.forEach((z) => {
+      zonesOnMap.forEach((zone) => {
         try {
-          // normalize vertices to numeric [lat, lng]
-          const verts = (z.vertices || []).map((v: any) => {
-            const lat = typeof v[0] === 'string' ? parseFloat(v[0]) : v[0];
-            const lng = typeof v[1] === 'string' ? parseFloat(v[1]) : v[1];
-            return [lat, lng];
-          }).filter((p: any) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+          const verts = (zone.vertices || [])
+            .map((v: any) => {
+              const lat = typeof v[0] === "string" ? parseFloat(v[0]) : v[0];
+              const lng = typeof v[1] === "string" ? parseFloat(v[1]) : v[1];
+              return [lat, lng];
+            })
+            .filter((p: any) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
 
           if (!verts || verts.length < 3) {
-            console.warn('Zone has insufficient vertices, skipping', z._id || z.id, verts);
             return;
           }
 
-          const polygon = L.polygon(verts, { color: riskColor(z.riskLevel), weight: 1.5, fillColor: riskColor(z.riskLevel), fillOpacity: 0.35 });
-          const incidentTitle = z.title || z.name || 'Incident zone';
-          const incidentDescription = z.description || 'No additional details provided.';
-          const incidentTypeLabel = z.incidentType ? String(z.incidentType).replaceAll('_', ' ') : 'incident';
+          const polygon = L.polygon(verts, {
+            color: riskColor(zone.riskLevel),
+            weight: 1.5,
+            fillColor: riskColor(zone.riskLevel),
+            fillOpacity: 0.35,
+          });
+          const incidentTitle = zone.title || zone.name || "Incident zone";
+          const incidentDescription = zone.description || "No additional details provided.";
+          const incidentTypeLabel = zone.incidentType ? String(zone.incidentType).replaceAll("_", " ") : "incident";
 
           polygon.bindTooltip(escapeHtml(incidentTitle), {
             sticky: true,
-            direction: 'top',
+            direction: "top",
             opacity: 0.95,
-            className: 'zone-tooltip',
+            className: "zone-tooltip",
             permanent: false,
           });
 
-          const reportedTime = z.createdAt ? new Date(z.createdAt).toLocaleString() : 'Time not available';
+          const reportedTime = zone.createdAt ? new Date(zone.createdAt).toLocaleString() : "Time not available";
 
           polygon.bindPopup(`
             <div style="min-width: 220px; max-width: 280px;">
@@ -225,8 +443,8 @@ function LocationPage() {
               <div style="font-size: 13px; line-height: 1.5; margin-bottom: 10px; color: #374151;">${escapeHtml(incidentDescription)}</div>
               <div style="display:flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #4b5563; margin-bottom: 8px;">
                 <span><strong>Type:</strong> ${escapeHtml(incidentTypeLabel)}</span>
-                <span><strong>Risk:</strong> ${escapeHtml(String(z.riskLevel || 'medium'))}</span>
-                <span><strong>Status:</strong> ${escapeHtml(String(z.status || 'pending'))}</span>
+                <span><strong>Risk:</strong> ${escapeHtml(String(zone.riskLevel || "medium"))}</span>
+                <span><strong>Status:</strong> ${escapeHtml(String(zone.status || "pending"))}</span>
               </div>
               <div style="padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
                 <strong>Reported:</strong> ${escapeHtml(reportedTime)}
@@ -234,30 +452,31 @@ function LocationPage() {
             </div>
           `);
 
-          polygon.on('click', () => {
+          polygon.on("click", () => {
             polygon.openPopup();
           });
 
-          polygon.on('mouseover', () => {
+          polygon.on("mouseover", () => {
             polygon.setStyle({ weight: 2.2, fillOpacity: 0.45 });
           });
 
-          polygon.on('mouseout', () => {
+          polygon.on("mouseout", () => {
             polygon.setStyle({ weight: 1.5, fillOpacity: 0.35 });
           });
 
           zonesLayerRef.current.addLayer(polygon);
-        } catch (e) {
-          console.error('Failed to draw zone', e, z);
+        } catch (err) {
+          console.error("Failed to draw zone", err, zone);
         }
       });
 
-      // draw or update persistent user location marker using an orange pin SVG
       if (userMarkerRef.current) {
         try {
-          userMarkerRef.current.setLatLng([coords.lat, coords.lng]);
-          if (typeof userMarkerRef.current.bringToFront === 'function') userMarkerRef.current.bringToFront();
-        } catch (e) { console.warn('Failed to update user marker', e); }
+          userMarkerRef.current.setLatLng([displayCoords.lat, displayCoords.lng]);
+          if (typeof userMarkerRef.current.bringToFront === "function") userMarkerRef.current.bringToFront();
+        } catch (err) {
+          console.warn("Failed to update user marker", err);
+        }
       } else {
         try {
           const pinHtml = `
@@ -265,18 +484,19 @@ function LocationPage() {
               <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z" fill="#ff7a00"/>
               <circle cx="12" cy="10" r="3" fill="white" />
             </svg>`;
-          const icon = L.divIcon({ html: pinHtml, className: '', iconSize: [28, 28], iconAnchor: [14, 28] });
-          userMarkerRef.current = L.marker([coords.lat, coords.lng], { icon });
-          try { userMarkerRef.current.addTo(mapRef.current); if (typeof userMarkerRef.current.bringToFront === 'function') userMarkerRef.current.bringToFront(); } catch (e) { console.warn('Could not bring user marker to front', e); }
-        } catch (e) { console.error('Failed to add user marker', e); }
+          const icon = L.divIcon({ html: pinHtml, className: "", iconSize: [28, 28], iconAnchor: [14, 28] });
+          userMarkerRef.current = L.marker([displayCoords.lat, displayCoords.lng], { icon });
+          userMarkerRef.current.addTo(mapRef.current);
+          if (typeof userMarkerRef.current.bringToFront === "function") userMarkerRef.current.bringToFront();
+        } catch (err) {
+          console.error("Failed to add user marker", err);
+        }
       }
     };
 
     init();
+  }, [displayCoords, zonesOnMap]);
 
-  }, [coords, zonesOnMap]);
-
-  // Socket event listeners
   useEffect(() => {
     if (!socket) return;
 
@@ -322,7 +542,6 @@ function LocationPage() {
     };
   }, [socket]);
 
-  // Use the browser geolocation API; no third-party map key required
   useEffect(() => {
     if (!tracking) {
       if (watchIdRef.current !== null) {
@@ -347,7 +566,6 @@ function LocationPage() {
         };
         setCoords(newCoords);
 
-        // Send location update to backend if authenticated
         if (isAuthenticated) {
           try {
             const token = localStorage.getItem("token");
@@ -355,7 +573,7 @@ function LocationPage() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
+                Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({
                 latitude: newCoords.lat,
@@ -379,7 +597,7 @@ function LocationPage() {
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     };
-  }, [tracking, socket, isAuthenticated]);
+  }, [tracking, isAuthenticated]);
 
   const handleToggle = (next: boolean) => {
     if (!isAuthenticated) {
@@ -410,7 +628,7 @@ function LocationPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           incidentType,
@@ -427,20 +645,17 @@ function LocationPage() {
         throw new Error(error.message || "Failed to report incident");
       }
 
-      const data = await response.json();
       toast.success("Incident reported successfully!", {
         description: "Authorities have been notified. The incident will be reviewed soon.",
       });
 
-      // Reset form
       setIncidentType("");
       setCustomTitle("");
       setDescription("");
       setRiskLevel("medium");
       setReportDialogOpen(false);
-
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to report incident");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to report incident");
     } finally {
       setReporting(false);
     }
@@ -455,7 +670,7 @@ function LocationPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ response }),
       });
@@ -471,8 +686,7 @@ function LocationPage() {
 
       setAlertDialogOpen(false);
       setCurrentAlert(null);
-
-    } catch (error) {
+    } catch {
       toast.error("Failed to submit response");
     }
   };
@@ -518,290 +732,402 @@ function LocationPage() {
 
   const IncidentIcon = currentAlert ? getIncidentIcon(currentAlert.incidentType) : AlertTriangle;
 
-  // Free, key-less map embed via OpenStreetMap
-  const mapSrc = coords
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.01}%2C${coords.lat - 0.01}%2C${coords.lng + 0.01}%2C${coords.lat + 0.01}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
-    : null;
-
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-hero">
       <Navbar />
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-            <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Live tracking</p>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Where in the world</h1>
-              <p className="mt-2 text-muted-foreground">Privacy-first location tracking. You're in control.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 glass rounded-xl px-4 py-3 w-full sm:w-auto">
-              <div className={`h-2.5 w-2.5 rounded-full ${tracking ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
-              <span className="text-sm font-medium">{tracking ? "Tracking on" : "Idle"}</span>
-              <Switch checked={tracking} onCheckedChange={handleToggle} />
+        <section className="relative overflow-hidden bg-gradient-hero">
+          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+              <div>
+                <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Live tracking</p>
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Where in the world</h1>
+                <p className="mt-3 text-muted-foreground max-w-2xl">Privacy-first location tracking. You're in control.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 glass rounded-xl px-4 py-3 w-full sm:w-auto">
+                <div className={`h-2.5 w-2.5 rounded-full ${tracking ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
+                <span className="text-sm font-medium">{tracking ? "Tracking on" : "Idle"}</span>
+                <Switch checked={tracking} onCheckedChange={handleToggle} />
+              </div>
             </div>
           </div>
+        </section>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Map */}
-            <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant aspect-[16/11]">
-              {coords ? (
-                <div id="map" className="w-full h-full"></div>
-              ) : (
-                <MapPlaceholder tracking={tracking} />
-              )}
-              {coords && (
-                <div className="absolute top-4 left-4 glass rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm">
-                  <Crosshair className="h-4 w-4 text-primary" />
-                  <span className="font-mono">
-                    {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-                  </span>
-                </div>
-              )}
-
-              {/* Zone Filters moved to side panel to avoid Leaflet overlay */}
-            </div>
-
-            {/* Side panel */}
-            <div className="space-y-4">
+        <section className="bg-background/95">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="mb-6 grid gap-4 lg:grid-cols-2">
               <Card>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold flex items-center gap-2"><Navigation className="h-4 w-4 text-primary" /> Status</h3>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${tracking ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-                    {tracking ? "ACTIVE" : "OFF"}
-                  </span>
-                </div>
-                <Stat label="Latitude" value={coords ? coords.lat.toFixed(6) : "—"} />
-                <Stat label="Longitude" value={coords ? coords.lng.toFixed(6) : "—"} />
-                <Stat label="Accuracy" value={coords ? `±${Math.round(coords.accuracy)} m` : "—"} />
-                <Stat label="Updated" value={coords ? new Date(coords.timestamp).toLocaleTimeString() : "—"} />
-              </Card>
-
-              <Card>
-                <h3 className="font-semibold mb-3 flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Zone Filters</h3>
-                <div className="flex flex-col gap-3">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="approved-side"
-                      checked={showApproved}
-                      onChange={(e) => setShowApproved(e.target.checked)}
-                      className="rounded h-4 w-4 accent-primary"
-                    />
-                    <span className="text-sm">Show Approved Zones</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="unapproved-side"
-                      checked={showUnapproved}
-                      onChange={(e) => setShowUnapproved(e.target.checked)}
-                      className="rounded h-4 w-4 accent-primary"
-                    />
-                    <span className="text-sm">Show Unapproved Incidents</span>
-                  </label>
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Safety snapshot</p>
+                    <Badge variant={safetySnapshot.tone === "danger" ? "destructive" : safetySnapshot.tone === "caution" ? "secondary" : "default"}>
+                      {safetySnapshot.label}
+                    </Badge>
+                  </div>
+                  <div className="text-lg font-semibold">{safetySnapshot.description}</div>
                 </div>
               </Card>
 
-              {/* Incident Reporting */}
               <Card>
-                <h3 className="font-semibold mb-3 flex items-center gap-2"><Siren className="h-4 w-4 text-red-500" /> Report Incident</h3>
-                <p className="text-sm text-muted-foreground mb-4">Report emergencies or incidents in your area.</p>
-                <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="destructive" className="w-full" disabled={!tracking || !coords}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Report Incident
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Report an Incident</DialogTitle>
-                      <DialogDescription>
-                        Help keep your community safe by reporting incidents. Quick options available below.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="incident-type">Incident Type</Label>
-                        <Select value={incidentType} onValueChange={setIncidentType}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select incident type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="accident">
-                              <div className="flex items-center gap-2">
-                                <Car className="h-4 w-4" />
-                                Accident
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="traffic_jam">
-                              <div className="flex items-center gap-2">
-                                <Car className="h-4 w-4" />
-                                Traffic Jam
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="crime">
-                              <div className="flex items-center gap-2">
-                                <Shield className="h-4 w-4" />
-                                Crime
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="suspicious_activity">
-                              <div className="flex items-center gap-2">
-                                <HelpCircle className="h-4 w-4" />
-                                Suspicious Activity
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="medical_emergency">
-                              <div className="flex items-center gap-2">
-                                <Zap className="h-4 w-4" />
-                                Medical Emergency
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="natural_disaster">
-                              <div className="flex items-center gap-2">
-                                <CloudRain className="h-4 w-4" />
-                                Natural Disaster
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="other">
-                              <div className="flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" />
-                                Other
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {incidentType === "other" && (
-                        <div>
-                          <Label htmlFor="custom-title">Title</Label>
-                          <Input
-                            id="custom-title"
-                            value={customTitle}
-                            onChange={(e) => setCustomTitle(e.target.value)}
-                            placeholder="Brief title for the incident"
-                          />
-                        </div>
-                      )}
-
-                      <div>
-                        <Label htmlFor="description">Description (Optional)</Label>
-                        <Textarea
-                          id="description"
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Additional details about the incident"
-                          rows={3}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="risk-level">Risk Level</Label>
-                        <Select value={riskLevel} onValueChange={setRiskLevel}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Low Risk</SelectItem>
-                            <SelectItem value="medium">Medium Risk</SelectItem>
-                            <SelectItem value="high">High Risk</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex gap-2 pt-4">
-                        <Button
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => setReportDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          className="flex-1"
-                          onClick={handleReportIncident}
-                          disabled={reporting || !incidentType}
-                        >
-                          {reporting ? "Reporting..." : "Report"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </Card>
-
-              <Card>
-                <h3 className="font-semibold mb-3 flex items-center gap-2"><Power className="h-4 w-4 text-accent" /> Controls</h3>
-                <p className="text-sm text-muted-foreground mb-4">Toggle tracking at any time. Coordinates never leave your device in this demo.</p>
-                <Button
-                  variant={tracking ? "outline" : "hero"}
-                  className="w-full"
-                  onClick={() => handleToggle(!tracking)}
-                >
-                  {tracking ? "Stop tracking" : "Enable tracking"}
-                </Button>
-              </Card>
-
-              {error && (
-                <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm flex gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <div className="flex items-start gap-4 lg:items-center">
                   <div>
-                    <p className="font-medium text-destructive">Couldn't fetch location</p>
-                    <p className="text-destructive/80 text-xs mt-1">{error}</p>
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Connection mode</p>
+                    <p className="mt-1 text-lg font-semibold">{tracking ? (isOnline ? (displayCoords ? "Live + saved" : "Online") : "Offline") : "Offline"}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {displayCoords
+                        ? `Showing ${tracking ? "live" : "last known"} location at ${new Date(displayCoords.timestamp).toLocaleTimeString()}.`
+                        : "No location stored yet. Enable tracking to start building a local history."}
+                    </p>
+                  </div>
+                  <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${tracking && isOnline ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {tracking && isOnline ? <Wifi className="h-5 w-5" /> : <WifiOff className="h-5 w-5" />}
                   </div>
                 </div>
-              )}
+              </Card>
             </div>
-          </div>
 
-          {/* User Alert Dialog */}
-          <Dialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                  Safety Check
-                </DialogTitle>
-                <DialogDescription>
-                  You've entered or are near a reported incident area. Are you okay?
-                </DialogDescription>
-              </DialogHeader>
-
-              {currentAlert && (
-                <Alert>
-                  <IncidentIcon className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>{currentAlert.title}</strong><br />
-                    {currentAlert.description}<br />
-                    <Badge variant="outline" className="mt-2">{currentAlert.incidentType}</Badge>
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="default"
-                  className="flex-1"
-                  onClick={() => handleUserResponse("ok")}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  I'm OK
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => handleUserResponse("not_ok")}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Need Help
-                </Button>
+            <div className="grid gap-6 lg:grid-cols-3 lg:min-h-[calc(100vh-24rem)]">
+              <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant aspect-[16/11]">
+                {displayCoords ? (
+                  <div id="map" className="w-full h-full"></div>
+                ) : (
+                  <MapPlaceholder tracking={tracking} />
+                )}
+                {displayCoords && (
+                  <div className="absolute top-4 left-4 glass rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm">
+                    <Crosshair className="h-4 w-4 text-primary" />
+                    <span className="font-mono">
+                      {displayCoords.lat.toFixed(5)}, {displayCoords.lng.toFixed(5)}
+                    </span>
+                    <Badge variant="outline" className="ml-2 text-[10px] uppercase tracking-widest">
+                      {tracking ? "Live" : lastKnownCoords ? "Last known" : "Location"}
+                    </Badge>
+                  </div>
+                )}
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+
+              <div className="space-y-4 lg:sticky lg:top-24 lg:pr-2" onMouseLeave={() => setOpenAccordion("status")}>
+                <Accordion
+                  type="single"
+                  collapsible
+                  value={openAccordion ?? undefined}
+                  onValueChange={(value) => setOpenAccordion(value || null)}
+                  className="space-y-4"
+                >
+                  <AccordionItem
+                    value="status"
+                    className="border-0"
+                    onMouseEnter={() => setOpenAccordion("status")}
+                    onClickCapture={() => handleAccordionActivate("status")}
+                  >
+                    <Card>
+                      <AccordionTrigger className="py-0 hover:no-underline">
+                        <div className="flex w-full items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Navigation className="h-4 w-4 text-primary" />
+                            <span className="font-semibold">Status</span>
+                          </div>
+                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${tracking ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                            {tracking ? "ACTIVE" : "OFF"}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4">
+                        <Stat label="Latitude" value={displayCoords ? displayCoords.lat.toFixed(6) : "—"} />
+                        <Stat label="Longitude" value={displayCoords ? displayCoords.lng.toFixed(6) : "—"} />
+                        <Stat label="Accuracy" value={displayCoords ? `±${Math.round(displayCoords.accuracy)} m` : "—"} />
+                        <Stat label="Updated" value={displayCoords ? new Date(displayCoords.timestamp).toLocaleTimeString() : "—"} />
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="nearby"
+                    className="border-0"
+                    onMouseEnter={() => setOpenAccordion("nearby")}
+                    onClickCapture={() => handleAccordionActivate("nearby")}
+                  >
+                    <Card>
+                      <AccordionTrigger className="py-0 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Map className="h-4 w-4 text-primary" />
+                          <span className="font-semibold">Nearby zones</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4">
+                        <div className="space-y-3">
+                          {displayCoords ? (
+                            nearbyZones.length > 0 ? (
+                              nearbyZones.map((zone) => (
+                                <div key={zone.zone._id || zone.zone.id || `${zone.zone.title}-${zone.distanceKm}`} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="font-medium truncate">{zone.zone.title || zone.zone.name || "Unnamed zone"}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">{zone.distanceLabel} away</p>
+                                    </div>
+                                    <Badge variant={zone.zone.riskLevel === "high" ? "destructive" : zone.zone.riskLevel === "medium" ? "secondary" : "outline"}>
+                                      {zone.zone.riskLevel || "low"}
+                                    </Badge>
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                                    <span>{zone.zone.incidentType || "incident"}</span>
+                                    <span>{zone.zone.status || "pending"}</span>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                                No nearby zones detected yet.
+                              </div>
+                            )
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                              Enable tracking or load a last-known location to see nearby zones.
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+
+
+                  <AccordionItem
+                    value="filters"
+                    className="border-0"
+                    onMouseEnter={() => setOpenAccordion("filters")}
+                    onClickCapture={() => handleAccordionActivate("filters")}
+                  >
+                    <Card>
+                      <AccordionTrigger className="py-0 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-primary" />
+                          <span className="font-semibold">Zone filters</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4">
+                        <div className="flex flex-col gap-3">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="approved-side"
+                              checked={showApproved}
+                              onChange={(e) => setShowApproved(e.target.checked)}
+                              className="rounded h-4 w-4 accent-primary"
+                            />
+                            <span className="text-sm">Show Approved Zones</span>
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="unapproved-side"
+                              checked={showUnapproved}
+                              onChange={(e) => setShowUnapproved(e.target.checked)}
+                              className="rounded h-4 w-4 accent-primary"
+                            />
+                            <span className="text-sm">Show Unapproved Incidents</span>
+                          </label>
+                        </div>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="report"
+                    className="border-0"
+                    onMouseEnter={() => setOpenAccordion("report")}
+                    onClickCapture={() => handleAccordionActivate("report")}
+                  >
+                    <Card>
+                      <AccordionTrigger className="py-0 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Siren className="h-4 w-4 text-red-500" />
+                          <span className="font-semibold">Report incident</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4">
+                        <p className="text-sm text-muted-foreground mb-4">Report emergencies or incidents in your area.</p>
+                        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="destructive" className="w-full" disabled={!tracking || !coords}>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Report Incident
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Report an Incident</DialogTitle>
+                              <DialogDescription>
+                                Help keep your community safe by reporting incidents. Quick options available below.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label htmlFor="incident-type">Incident Type</Label>
+                                <Select value={incidentType} onValueChange={setIncidentType}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select incident type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="accident">
+                                      <div className="flex items-center gap-2">
+                                        <Car className="h-4 w-4" />
+                                        Accident
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="traffic_jam">
+                                      <div className="flex items-center gap-2">
+                                        <Car className="h-4 w-4" />
+                                        Traffic Jam
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="crime">
+                                      <div className="flex items-center gap-2">
+                                        <Shield className="h-4 w-4" />
+                                        Crime
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="suspicious_activity">
+                                      <div className="flex items-center gap-2">
+                                        <HelpCircle className="h-4 w-4" />
+                                        Suspicious Activity
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="medical_emergency">
+                                      <div className="flex items-center gap-2">
+                                        <Zap className="h-4 w-4" />
+                                        Medical Emergency
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="natural_disaster">
+                                      <div className="flex items-center gap-2">
+                                        <CloudRain className="h-4 w-4" />
+                                        Natural Disaster
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="other">
+                                      <div className="flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        Other
+                                      </div>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {incidentType === "other" && (
+                                <div>
+                                  <Label htmlFor="custom-title">Title</Label>
+                                  <Input
+                                    id="custom-title"
+                                    value={customTitle}
+                                    onChange={(e) => setCustomTitle(e.target.value)}
+                                    placeholder="Brief title for the incident"
+                                  />
+                                </div>
+                              )}
+
+                              <div>
+                                <Label htmlFor="description">Description (Optional)</Label>
+                                <Textarea
+                                  id="description"
+                                  value={description}
+                                  onChange={(e) => setDescription(e.target.value)}
+                                  placeholder="Additional details about the incident"
+                                  rows={3}
+                                />
+                              </div>
+
+                              <div>
+                                <Label htmlFor="risk-level">Risk Level</Label>
+                                <Select value={riskLevel} onValueChange={setRiskLevel}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="low">Low Risk</SelectItem>
+                                    <SelectItem value="medium">Medium Risk</SelectItem>
+                                    <SelectItem value="high">High Risk</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="flex gap-2 pt-4">
+                                <Button
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => setReportDialogOpen(false)}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  className="flex-1"
+                                  onClick={handleReportIncident}
+                                  disabled={reporting || !incidentType}
+                                >
+                                  {reporting ? "Reporting..." : "Report"}
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+
+                </Accordion>
+
+                {error && (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm flex gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-destructive">Couldn't fetch location</p>
+                      <p className="text-destructive/80 text-xs mt-1">{error}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Dialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                    Safety Check
+                  </DialogTitle>
+                  <DialogDescription>
+                    You have entered or are near a reported incident area. Are you okay?
+                  </DialogDescription>
+                </DialogHeader>
+
+                {currentAlert && (
+                  <Alert>
+                    <IncidentIcon className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>{currentAlert.title}</strong>
+                      <br />
+                      {currentAlert.description}
+                      <br />
+                      <Badge variant="outline" className="mt-2">{currentAlert.incidentType}</Badge>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex gap-2">
+                  <Button variant="default" className="flex-1" onClick={() => handleUserResponse("ok")}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    I'm OK
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => handleUserResponse("not_ok")}>
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Need Help
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </section>
       </main>
       <Footer />
     </div>
@@ -831,7 +1157,7 @@ function MapPlaceholder({ tracking }: { tracking: boolean }) {
         </div>
       </div>
       <p className="relative mt-6 text-center max-w-xs px-4">
-        <span className="font-semibold block mb-1">{tracking ? "Locating you…" : "Tracking is off"}</span>
+        <span className="font-semibold block mb-1">{tracking ? "Locating you..." : "Tracking is off"}</span>
         <span className="text-sm text-muted-foreground">
           {tracking ? "Allow location access in your browser to see the map." : "Enable tracking to see your position on the map."}
         </span>

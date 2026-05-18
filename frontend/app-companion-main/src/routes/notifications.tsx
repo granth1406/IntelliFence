@@ -29,52 +29,61 @@ function NotificationsPage() {
   const sorted = useMemo(() => [...notifications], [notifications]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-hero">
       <Navbar />
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-          <div>
-            <Badge variant="secondary" className="mb-3">Live feed</Badge>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Notifications</h1>
-            <p className="mt-2 text-muted-foreground">Your app notifications update here in real time.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="glass rounded-2xl px-4 py-3 text-sm">
-              <div className="flex items-center gap-2">
-                <Clock3 className="h-4 w-4 text-primary" />
-                <span>{unreadCount} unread</span>
+      <main className="flex-1">
+        <section className="relative overflow-hidden bg-gradient-hero">
+          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+          <div className="relative max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+              <div>
+                <Badge variant="secondary" className="mb-3">Live feed</Badge>
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Notifications</h1>
+                <p className="mt-2 text-muted-foreground">Your app notifications update here in real time.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="glass rounded-2xl px-4 py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock3 className="h-4 w-4 text-primary" />
+                    <span>{unreadCount} unread</span>
+                  </div>
+                </div>
+                {unreadCount > 0 && (
+                  <Button variant="hero" onClick={markAllAsRead}>
+                    <CheckCheck className="h-4 w-4" /> Mark all read
+                  </Button>
+                )}
               </div>
             </div>
-            {unreadCount > 0 && (
-              <Button variant="hero" onClick={markAllAsRead}>
-                <CheckCheck className="h-4 w-4" /> Mark all read
-              </Button>
+          </div>
+        </section>
+
+        <section className="bg-background/95">
+          <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            {!isAuthenticated ? (
+              <div className="glass rounded-3xl p-10 text-center">
+                <h2 className="text-2xl font-bold">Sign in to see your live feed</h2>
+                <p className="mt-2 text-muted-foreground">Notifications are tied to your signed-in session.</p>
+                <div className="mt-6 flex justify-center gap-3">
+                  <Button asChild variant="hero"><Link to="/login">Sign in</Link></Button>
+                  <Button asChild variant="outline"><Link to="/signup">Create account</Link></Button>
+                </div>
+              </div>
+            ) : sorted.length === 0 ? (
+              <div className="glass rounded-3xl p-10 text-center">
+                <Bell className="h-10 w-10 mx-auto text-muted-foreground" />
+                <h2 className="mt-4 text-2xl font-bold">No notifications yet</h2>
+                <p className="mt-2 text-muted-foreground">When zones, incidents, or safety alerts arrive, they will show up here automatically.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sorted.map((n) => (
+                  <NotificationRow key={n.id} notification={n} onRead={markAsRead} />
+                ))}
+              </div>
             )}
           </div>
-        </div>
-
-        {!isAuthenticated ? (
-          <div className="glass rounded-3xl p-10 text-center">
-            <h2 className="text-2xl font-bold">Sign in to see your live feed</h2>
-            <p className="mt-2 text-muted-foreground">Notifications are tied to your signed-in session.</p>
-            <div className="mt-6 flex justify-center gap-3">
-              <Button asChild variant="hero"><Link to="/login">Sign in</Link></Button>
-              <Button asChild variant="outline"><Link to="/signup">Create account</Link></Button>
-            </div>
-          </div>
-        ) : sorted.length === 0 ? (
-          <div className="glass rounded-3xl p-10 text-center">
-            <Bell className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h2 className="mt-4 text-2xl font-bold">No notifications yet</h2>
-            <p className="mt-2 text-muted-foreground">When zones, incidents, or safety alerts arrive, they will show up here automatically.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sorted.map((n) => (
-              <NotificationRow key={n.id} notification={n} onRead={markAsRead} />
-            ))}
-          </div>
-        )}
+        </section>
       </main>
       <Footer />
     </div>
