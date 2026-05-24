@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Field } from "@/components/Field";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -42,11 +43,13 @@ function ProfilePage() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center max-w-md glass rounded-2xl p-10">
-            <h1 className="text-2xl font-bold">You're not signed in</h1>
-            <p className="text-muted-foreground mt-2 mb-6">Sign in to view and edit your profile.</p>
-            <Button variant="hero" asChild><Link to="/login">Sign in</Link></Button>
-          </div>
+          <ScrollReveal>
+            <div className="text-center max-w-md glass rounded-2xl p-10">
+              <h1 className="text-2xl font-bold">You're not signed in</h1>
+              <p className="text-muted-foreground mt-2 mb-6">Sign in to view and edit your profile.</p>
+              <Button variant="hero" asChild><Link to="/login">Sign in</Link></Button>
+            </div>
+          </ScrollReveal>
         </main>
         <Footer />
       </div>
@@ -98,12 +101,15 @@ function ProfilePage() {
       <Navbar />
       <main className="flex-1">
         {/* Header band */}
-        <div className="relative h-48 sm:h-56 bg-gradient-hero overflow-hidden">
-          <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.4)_1px,transparent_0)] [background-size:32px_32px]" />
-        </div>
+        <ScrollReveal>
+          <div className="relative h-48 sm:h-56 bg-gradient-hero overflow-hidden">
+            <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.4)_1px,transparent_0)] [background-size:32px_32px]" />
+          </div>
+        </ScrollReveal>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 pb-16">
-          <div className="bg-gradient-card glass rounded-3xl shadow-elegant p-6 sm:p-10">
+        <ScrollReveal delay={120}>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 pb-16">
+            <div className="bg-gradient-card glass rounded-3xl shadow-elegant p-6 sm:p-10">
             <div className="flex flex-col sm:flex-row items-start gap-6">
               {/* Avatar */}
               <div className="relative group">
@@ -170,8 +176,9 @@ function ProfilePage() {
                 </Button>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>

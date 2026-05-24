@@ -1,4 +1,4 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Menu, X, MapPin, FileText, User as UserIcon, LogOut, Archive, Settings } from "lucide-react";
 import { Logo } from "./Logo";
@@ -24,7 +24,14 @@ const navLinks = [
 export function Navbar() {
   const { isAuthenticated, user, logout } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    setMobileOpen(false);
+    navigate({ to: "/" });
+  };
 
   const allNavLinks = [
     ...(isAuthenticated ? [] : [{ to: "/", label: "Home" }]),
@@ -37,7 +44,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      <div className="absolute inset-0 glass border-b border-border" />
+      <div className="absolute inset-0 glass border-b border-border/70" />
       <nav className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Logo />
 
@@ -48,6 +55,7 @@ export function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
+                aria-current={active ? "page" : undefined}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-smooth ${
                   active ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                 }`}
@@ -91,7 +99,7 @@ export function Navbar() {
                     <Link to="/reports" className="cursor-pointer"><FileText className="h-4 w-4 mr-2" /> Reports</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive">
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
                     <LogOut className="h-4 w-4 mr-2" /> Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>

@@ -4,6 +4,7 @@ import { Footer } from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, MapPin, Activity, Siren } from "lucide-react";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export function AuthShell({
   title,
@@ -20,9 +21,9 @@ export function AuthShell({
       <main className="flex-1">
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
-            <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-              <div className="max-w-2xl">
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+            <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+              <ScrollReveal className="max-w-2xl">
                 <Badge variant="secondary" className="mb-4">Secure access</Badge>
                 <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
                   {title}
@@ -80,9 +81,9 @@ export function AuthShell({
                     </CardContent>
                   </Card>
                 </div>
-              </div>
+              </ScrollReveal>
 
-              <div className="w-full max-w-md lg:justify-self-end">
+              <ScrollReveal className="w-full max-w-md lg:justify-self-end" delay={120}>
                 <div className="relative">
                   <div className="absolute -inset-1 bg-gradient-primary opacity-30 blur-2xl rounded-2xl" />
                   <div className="relative glass rounded-2xl p-6 sm:p-8 lg:p-10 shadow-elegant">
@@ -91,7 +92,7 @@ export function AuthShell({
                     <div className="mt-8">{children}</div>
                   </div>
                 </div>
-              </div>
+              </ScrollReveal>
             </div>
           </div>
         </section>

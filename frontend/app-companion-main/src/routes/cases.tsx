@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export const Route = createFileRoute("/cases")({
   head: () => ({
@@ -100,14 +101,16 @@ function CasesPage() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center px-4">
-          <div className="max-w-md glass rounded-3xl p-10 text-center">
-            <Shield className="h-10 w-10 mx-auto text-primary" />
-            <h1 className="mt-4 text-2xl font-bold">Authority access required</h1>
-            <p className="mt-2 text-muted-foreground">Sign in with an authority account to view archived cases.</p>
-            <Button asChild variant="hero" className="mt-6">
-              <Link to="/login">Sign in</Link>
-            </Button>
-          </div>
+          <ScrollReveal>
+            <div className="max-w-md glass rounded-3xl p-10 text-center">
+              <Shield className="h-10 w-10 mx-auto text-primary" />
+              <h1 className="mt-4 text-2xl font-bold">Authority access required</h1>
+              <p className="mt-2 text-muted-foreground">Sign in with an authority account to view archived cases.</p>
+              <Button asChild variant="hero" className="mt-6">
+                <Link to="/login">Sign in</Link>
+              </Button>
+            </div>
+          </ScrollReveal>
         </main>
         <Footer />
       </div>
@@ -118,28 +121,31 @@ function CasesPage() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-hero">
-          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-              <Badge variant="secondary" className="mb-4">Case archive</Badge>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Resolved & denied cases</h1>
-              <p className="mt-3 text-muted-foreground max-w-2xl">
-                Every resolved or denied incident is removed from live zones and archived here as a case record.
-              </p>
+        <ScrollReveal>
+          <section className="relative overflow-hidden bg-gradient-hero">
+            <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div>
+                <Badge variant="secondary" className="mb-4">Case archive</Badge>
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Resolved & denied cases</h1>
+                <p className="mt-3 text-muted-foreground max-w-2xl">
+                  Every resolved or denied incident is removed from live zones and archived here as a case record.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="glass" asChild>
+                  <Link to="/admin"><BadgeAlert className="h-4 w-4" /> Back to admin</Link>
+                </Button>
+                <Button variant="hero" onClick={fetchCases}>
+                  <RefreshCw className="h-4 w-4" /> Refresh
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="glass" asChild>
-                <Link to="/admin"><BadgeAlert className="h-4 w-4" /> Back to admin</Link>
-              </Button>
-              <Button variant="hero" onClick={fetchCases}>
-                <RefreshCw className="h-4 w-4" /> Refresh
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <ScrollReveal delay={120}>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 mb-8">
             <StatCard title="Archived cases" value={String(total)} icon={Archive} />
             <StatCard title="Resolved cases" value={String(records.filter((r) => r.caseStatus === "resolved").length)} icon={Shield} />
@@ -220,7 +226,8 @@ function CasesPage() {
               )}
             </CardContent>
           </Card>
-        </section>
+          </section>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>

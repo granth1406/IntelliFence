@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useApp } from "@/context/AppContext";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -142,31 +143,34 @@ function ReportsPage() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-hero">
-          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-              <Badge variant="secondary" className="mb-4">Your reports</Badge>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">My incident reports</h1>
-              <p className="mt-3 text-muted-foreground max-w-2xl">
-                Track the status of your reports and review how each incident was handled.
-              </p>
+        <ScrollReveal>
+          <section className="relative overflow-hidden bg-gradient-hero">
+            <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div>
+                <Badge variant="secondary" className="mb-4">Your reports</Badge>
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">My incident reports</h1>
+                <p className="mt-3 text-muted-foreground max-w-2xl">
+                  Track the status of your reports and review how each incident was handled.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="glass" asChild>
+                  <Link to="/location"><MapPin className="h-4 w-4" /> New report</Link>
+                </Button>
+                <Button variant="hero" onClick={() => {
+                  setLoading(true);
+                  fetchReports();
+                }}>
+                  <RefreshCw className="h-4 w-4" /> Refresh
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="glass" asChild>
-                <Link to="/location"><MapPin className="h-4 w-4" /> New report</Link>
-              </Button>
-              <Button variant="hero" onClick={() => {
-                setLoading(true);
-                fetchReports();
-              }}>
-                <RefreshCw className="h-4 w-4" /> Refresh
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <ScrollReveal delay={120}>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4 mb-8">
             <StatCard title="Total reports" value={String(stats.total)} icon={FileText} />
             <StatCard title="Pending review" value={String(stats.pending)} icon={Clock} />
@@ -263,7 +267,8 @@ function ReportsPage() {
               </CardContent>
             </Card>
           )}
-        </section>
+          </section>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>

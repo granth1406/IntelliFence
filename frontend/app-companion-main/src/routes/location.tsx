@@ -50,7 +50,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export const Route = createFileRoute("/location")({
   head: () => ({
@@ -185,11 +185,7 @@ function LocationPage() {
   const [showApproved, setShowApproved] = useState(true);
   const [showUnapproved, setShowUnapproved] = useState(true);
   const [zonesOnMap, setZonesOnMap] = useState<any[]>([]);
-  const [openAccordion, setOpenAccordion] = useState<string | null>("status");
 
-  const handleAccordionActivate = (value: string) => {
-    setOpenAccordion((prev) => (prev === value ? prev : value));
-  };
 
   const displayCoords = coords ?? lastKnownCoords;
 
@@ -383,13 +379,31 @@ function LocationPage() {
       const L = LRef.current;
 
       if (!mapRef.current) {
-        mapRef.current = L.map("map", { center: [displayCoords.lat, displayCoords.lng], zoom: 15, preferCanvas: true });
+        mapRef.current = L.map("map", {
+          center: [displayCoords.lat, displayCoords.lng],
+          zoom: 15,
+          preferCanvas: true,
+          zoomSnap: 0.25,
+          zoomDelta: 0.5,
+          wheelDebounceTime: 40,
+          wheelPxPerZoomLevel: 80,
+          inertia: true,
+          inertiaDeceleration: 3000,
+          inertiaMaxSpeed: 1500,
+          zoomAnimation: true,
+          fadeAnimation: true,
+          markerZoomAnimation: true,
+        });
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           attribution: "&copy; OpenStreetMap",
         }).addTo(mapRef.current);
       } else {
-        mapRef.current.setView([displayCoords.lat, displayCoords.lng], 15);
+        mapRef.current.flyTo([displayCoords.lat, displayCoords.lng], 15, {
+          duration: 0.8,
+          easeLinearity: 0.25,
+          noMoveStart: true,
+        });
       }
 
       if (!zonesLayerRef.current) {
@@ -736,26 +750,29 @@ function LocationPage() {
     <div className="min-h-screen flex flex-col bg-gradient-hero">
       <Navbar />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-hero">
-          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-              <div>
-                <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Live tracking</p>
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Where in the world</h1>
-                <p className="mt-3 text-muted-foreground max-w-2xl">Privacy-first location tracking. You're in control.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 glass rounded-xl px-4 py-3 w-full sm:w-auto">
-                <div className={`h-2.5 w-2.5 rounded-full ${tracking ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
-                <span className="text-sm font-medium">{tracking ? "Tracking on" : "Idle"}</span>
-                <Switch checked={tracking} onCheckedChange={handleToggle} />
+        <ScrollReveal>
+          <section className="relative overflow-hidden bg-gradient-hero">
+            <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                <div>
+                  <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Live tracking</p>
+                  <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Where in the world</h1>
+                  <p className="mt-3 text-muted-foreground max-w-2xl">Privacy-first location tracking. You're in control.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 glass rounded-xl px-4 py-3 w-full sm:w-auto">
+                  <div className={`h-2.5 w-2.5 rounded-full ${tracking ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
+                  <span className="text-sm font-medium">{tracking ? "Tracking on" : "Idle"}</span>
+                  <Switch checked={tracking} onCheckedChange={handleToggle} />
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="bg-background/95">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ScrollReveal delay={120}>
+          <section className="bg-background/95">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="mb-6 grid gap-4 lg:grid-cols-2">
               <Card>
                 <div className="flex flex-col gap-2">
@@ -787,8 +804,8 @@ function LocationPage() {
               </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3 lg:min-h-[calc(100vh-24rem)]">
-              <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant aspect-[16/11]">
+            <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100vh-12rem)] lg:items-stretch">
+              <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant lg:h-full">
                 {displayCoords ? (
                   <div id="map" className="w-full h-full"></div>
                 ) : (
@@ -807,275 +824,225 @@ function LocationPage() {
                 )}
               </div>
 
-              <div className="space-y-4 lg:sticky lg:top-24 lg:pr-2" onMouseLeave={() => setOpenAccordion("status")}>
-                <Accordion
-                  type="single"
-                  collapsible
-                  value={openAccordion ?? undefined}
-                  onValueChange={(value) => setOpenAccordion(value || null)}
-                  className="space-y-4"
-                >
-                  <AccordionItem
-                    value="status"
-                    className="border-0"
-                    onMouseEnter={() => setOpenAccordion("status")}
-                    onClickCapture={() => handleAccordionActivate("status")}
-                  >
-                    <Card>
-                      <AccordionTrigger className="py-0 hover:no-underline">
-                        <div className="flex w-full items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Navigation className="h-4 w-4 text-primary" />
-                            <span className="font-semibold">Status</span>
-                          </div>
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${tracking ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-                            {tracking ? "ACTIVE" : "OFF"}
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-4">
-                        <Stat label="Latitude" value={displayCoords ? displayCoords.lat.toFixed(6) : "—"} />
-                        <Stat label="Longitude" value={displayCoords ? displayCoords.lng.toFixed(6) : "—"} />
-                        <Stat label="Accuracy" value={displayCoords ? `±${Math.round(displayCoords.accuracy)} m` : "—"} />
-                        <Stat label="Updated" value={displayCoords ? new Date(displayCoords.timestamp).toLocaleTimeString() : "—"} />
-                      </AccordionContent>
-                    </Card>
-                  </AccordionItem>
+              <div className="space-y-4 lg:pr-2 lg:h-full lg:overflow-y-auto">
+                <Card>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Navigation className="h-4 w-4 text-primary" />
+                      <span className="font-semibold">Status</span>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${tracking ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                      {tracking ? "ACTIVE" : "OFF"}
+                    </span>
+                  </div>
+                  <div className="pt-4">
+                    <Stat label="Latitude" value={displayCoords ? displayCoords.lat.toFixed(6) : "—"} />
+                    <Stat label="Longitude" value={displayCoords ? displayCoords.lng.toFixed(6) : "—"} />
+                    <Stat label="Accuracy" value={displayCoords ? `±${Math.round(displayCoords.accuracy)} m` : "—"} />
+                    <Stat label="Updated" value={displayCoords ? new Date(displayCoords.timestamp).toLocaleTimeString() : "—"} />
+                  </div>
+                </Card>
 
-                  <AccordionItem
-                    value="nearby"
-                    className="border-0"
-                    onMouseEnter={() => setOpenAccordion("nearby")}
-                    onClickCapture={() => handleAccordionActivate("nearby")}
-                  >
-                    <Card>
-                      <AccordionTrigger className="py-0 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Map className="h-4 w-4 text-primary" />
-                          <span className="font-semibold">Nearby zones</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-4">
-                        <div className="space-y-3">
-                          {displayCoords ? (
-                            nearbyZones.length > 0 ? (
-                              nearbyZones.map((zone) => (
-                                <div key={zone.zone._id || zone.zone.id || `${zone.zone.title}-${zone.distanceKm}`} className="rounded-xl border border-border/60 bg-background/40 p-3">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="font-medium truncate">{zone.zone.title || zone.zone.name || "Unnamed zone"}</p>
-                                      <p className="text-xs text-muted-foreground mt-1">{zone.distanceLabel} away</p>
-                                    </div>
-                                    <Badge variant={zone.zone.riskLevel === "high" ? "destructive" : zone.zone.riskLevel === "medium" ? "secondary" : "outline"}>
-                                      {zone.zone.riskLevel || "low"}
-                                    </Badge>
-                                  </div>
-                                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-                                    <span>{zone.zone.incidentType || "incident"}</span>
-                                    <span>{zone.zone.status || "pending"}</span>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                                No nearby zones detected yet.
+                <Card>
+                  <div className="flex items-center gap-2">
+                    <Map className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">Nearby zones</span>
+                  </div>
+                  <div className="pt-4 space-y-3">
+                    {displayCoords ? (
+                      nearbyZones.length > 0 ? (
+                        nearbyZones.map((zone) => (
+                          <div key={zone.zone._id || zone.zone.id || `${zone.zone.title}-${zone.distanceKm}`} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">{zone.zone.title || zone.zone.name || "Unnamed zone"}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{zone.distanceLabel} away</p>
                               </div>
-                            )
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                              Enable tracking or load a last-known location to see nearby zones.
+                              <Badge variant={zone.zone.riskLevel === "high" ? "destructive" : zone.zone.riskLevel === "medium" ? "secondary" : "outline"}>
+                                {zone.zone.riskLevel || "low"}
+                              </Badge>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                              <span>{zone.zone.incidentType || "incident"}</span>
+                              <span>{zone.zone.status || "pending"}</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                          No nearby zones detected yet.
+                        </div>
+                      )
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                        Enable tracking or load a last-known location to see nearby zones.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span className="font-semibold">Zone filters</span>
+                  </div>
+                  <div className="pt-4 flex flex-col gap-3">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="approved-side"
+                        checked={showApproved}
+                        onChange={(e) => setShowApproved(e.target.checked)}
+                        className="rounded h-4 w-4 accent-primary"
+                      />
+                      <span className="text-sm">Show Approved Zones</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="unapproved-side"
+                        checked={showUnapproved}
+                        onChange={(e) => setShowUnapproved(e.target.checked)}
+                        className="rounded h-4 w-4 accent-primary"
+                      />
+                      <span className="text-sm">Show Unapproved Incidents</span>
+                    </label>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-center gap-2">
+                    <Siren className="h-4 w-4 text-red-500" />
+                    <span className="font-semibold">Report incident</span>
+                  </div>
+                  <div className="pt-4">
+                    <p className="text-sm text-muted-foreground mb-4">Report emergencies or incidents in your area.</p>
+                    <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="destructive" className="w-full" disabled={!tracking || !coords}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Report Incident
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Report an Incident</DialogTitle>
+                          <DialogDescription>
+                            Help keep your community safe by reporting incidents. Quick options available below.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="incident-type">Incident Type</Label>
+                            <Select value={incidentType} onValueChange={setIncidentType}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select incident type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="accident">
+                                  <div className="flex items-center gap-2">
+                                    <Car className="h-4 w-4" />
+                                    Accident
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="traffic_jam">
+                                  <div className="flex items-center gap-2">
+                                    <Car className="h-4 w-4" />
+                                    Traffic Jam
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="crime">
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-4 w-4" />
+                                    Crime
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="suspicious_activity">
+                                  <div className="flex items-center gap-2">
+                                    <HelpCircle className="h-4 w-4" />
+                                    Suspicious Activity
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="medical_emergency">
+                                  <div className="flex items-center gap-2">
+                                    <Zap className="h-4 w-4" />
+                                    Medical Emergency
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="natural_disaster">
+                                  <div className="flex items-center gap-2">
+                                    <CloudRain className="h-4 w-4" />
+                                    Natural Disaster
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="other">
+                                  <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Other
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {incidentType === "other" && (
+                            <div>
+                              <Label htmlFor="custom-title">Title</Label>
+                              <Input
+                                id="custom-title"
+                                value={customTitle}
+                                onChange={(e) => setCustomTitle(e.target.value)}
+                                placeholder="Brief title for the incident"
+                              />
                             </div>
                           )}
-                        </div>
-                      </AccordionContent>
-                    </Card>
-                  </AccordionItem>
 
-
-                  <AccordionItem
-                    value="filters"
-                    className="border-0"
-                    onMouseEnter={() => setOpenAccordion("filters")}
-                    onClickCapture={() => handleAccordionActivate("filters")}
-                  >
-                    <Card>
-                      <AccordionTrigger className="py-0 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-primary" />
-                          <span className="font-semibold">Zone filters</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-4">
-                        <div className="flex flex-col gap-3">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="approved-side"
-                              checked={showApproved}
-                              onChange={(e) => setShowApproved(e.target.checked)}
-                              className="rounded h-4 w-4 accent-primary"
+                          <div>
+                            <Label htmlFor="description">Description (Optional)</Label>
+                            <Textarea
+                              id="description"
+                              value={description}
+                              onChange={(e) => setDescription(e.target.value)}
+                              placeholder="Additional details about the incident"
+                              rows={3}
                             />
-                            <span className="text-sm">Show Approved Zones</span>
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="unapproved-side"
-                              checked={showUnapproved}
-                              onChange={(e) => setShowUnapproved(e.target.checked)}
-                              className="rounded h-4 w-4 accent-primary"
-                            />
-                            <span className="text-sm">Show Unapproved Incidents</span>
-                          </label>
-                        </div>
-                      </AccordionContent>
-                    </Card>
-                  </AccordionItem>
+                          </div>
 
-                  <AccordionItem
-                    value="report"
-                    className="border-0"
-                    onMouseEnter={() => setOpenAccordion("report")}
-                    onClickCapture={() => handleAccordionActivate("report")}
-                  >
-                    <Card>
-                      <AccordionTrigger className="py-0 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Siren className="h-4 w-4 text-red-500" />
-                          <span className="font-semibold">Report incident</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-4">
-                        <p className="text-sm text-muted-foreground mb-4">Report emergencies or incidents in your area.</p>
-                        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="destructive" className="w-full" disabled={!tracking || !coords}>
-                              <Plus className="h-4 w-4 mr-2" />
-                              Report Incident
+                          <div>
+                            <Label htmlFor="risk-level">Risk Level</Label>
+                            <Select value={riskLevel} onValueChange={setRiskLevel}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Low Risk</SelectItem>
+                                <SelectItem value="medium">Medium Risk</SelectItem>
+                                <SelectItem value="high">High Risk</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() => setReportDialogOpen(false)}
+                            >
+                              Cancel
                             </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Report an Incident</DialogTitle>
-                              <DialogDescription>
-                                Help keep your community safe by reporting incidents. Quick options available below.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <div>
-                                <Label htmlFor="incident-type">Incident Type</Label>
-                                <Select value={incidentType} onValueChange={setIncidentType}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select incident type" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="accident">
-                                      <div className="flex items-center gap-2">
-                                        <Car className="h-4 w-4" />
-                                        Accident
-                                      </div>
-                                    </SelectItem>
-                                    <SelectItem value="traffic_jam">
-                                      <div className="flex items-center gap-2">
-                                        <Car className="h-4 w-4" />
-                                        Traffic Jam
-                                      </div>
-                                    </SelectItem>
-                                    <SelectItem value="crime">
-                                      <div className="flex items-center gap-2">
-                                        <Shield className="h-4 w-4" />
-                                        Crime
-                                      </div>
-                                    </SelectItem>
-                                    <SelectItem value="suspicious_activity">
-                                      <div className="flex items-center gap-2">
-                                        <HelpCircle className="h-4 w-4" />
-                                        Suspicious Activity
-                                      </div>
-                                    </SelectItem>
-                                    <SelectItem value="medical_emergency">
-                                      <div className="flex items-center gap-2">
-                                        <Zap className="h-4 w-4" />
-                                        Medical Emergency
-                                      </div>
-                                    </SelectItem>
-                                    <SelectItem value="natural_disaster">
-                                      <div className="flex items-center gap-2">
-                                        <CloudRain className="h-4 w-4" />
-                                        Natural Disaster
-                                      </div>
-                                    </SelectItem>
-                                    <SelectItem value="other">
-                                      <div className="flex items-center gap-2">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        Other
-                                      </div>
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {incidentType === "other" && (
-                                <div>
-                                  <Label htmlFor="custom-title">Title</Label>
-                                  <Input
-                                    id="custom-title"
-                                    value={customTitle}
-                                    onChange={(e) => setCustomTitle(e.target.value)}
-                                    placeholder="Brief title for the incident"
-                                  />
-                                </div>
-                              )}
-
-                              <div>
-                                <Label htmlFor="description">Description (Optional)</Label>
-                                <Textarea
-                                  id="description"
-                                  value={description}
-                                  onChange={(e) => setDescription(e.target.value)}
-                                  placeholder="Additional details about the incident"
-                                  rows={3}
-                                />
-                              </div>
-
-                              <div>
-                                <Label htmlFor="risk-level">Risk Level</Label>
-                                <Select value={riskLevel} onValueChange={setRiskLevel}>
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="low">Low Risk</SelectItem>
-                                    <SelectItem value="medium">Medium Risk</SelectItem>
-                                    <SelectItem value="high">High Risk</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="flex gap-2 pt-4">
-                                <Button
-                                  variant="outline"
-                                  className="flex-1"
-                                  onClick={() => setReportDialogOpen(false)}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  className="flex-1"
-                                  onClick={handleReportIncident}
-                                  disabled={reporting || !incidentType}
-                                >
-                                  {reporting ? "Reporting..." : "Report"}
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </AccordionContent>
-                    </Card>
-                  </AccordionItem>
-
-                </Accordion>
+                            <Button
+                              className="flex-1"
+                              onClick={handleReportIncident}
+                              disabled={reporting || !incidentType}
+                            >
+                              {reporting ? "Reporting..." : "Report"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </Card>
 
                 {error && (
                   <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm flex gap-2">
@@ -1087,7 +1054,7 @@ function LocationPage() {
                   </div>
                 )}
               </div>
-            </div>
+              </div>
 
             <Dialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
               <DialogContent className="sm:max-w-md">
@@ -1126,8 +1093,9 @@ function LocationPage() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
-        </section>
+            </div>
+          </section>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>

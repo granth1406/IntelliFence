@@ -4,7 +4,7 @@ import { Logo } from "./Logo";
 
 export function Footer() {
   return (
-    <footer className="relative border-t border-border mt-20">
+    <footer className="relative border-t border-border/70 mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           <div className="sm:col-span-2 lg:col-span-2">
@@ -14,7 +14,7 @@ export function Footer() {
             </p>
             <div className="flex gap-3 mt-6">
               {[Github, Twitter, Linkedin].map((Icon, i) => (
-                <a key={i} href="#" className="h-9 w-9 rounded-lg glass flex items-center justify-center hover:bg-secondary transition-smooth">
+                <a key={i} href="#" className="h-9 w-9 rounded-lg glass flex items-center justify-center hover:bg-secondary/80 transition-smooth">
                   <Icon className="h-4 w-4" />
                 </a>
               ))}
@@ -39,7 +39,7 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+        <div className="pt-8 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} IntelliFence. Public safety, in real time.</p>
           <p>Built for the modern web.</p>
         </div>

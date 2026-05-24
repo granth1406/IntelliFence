@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/AppContext";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -171,23 +172,26 @@ function SettingsPage() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-hero">
-          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-              <Badge variant="secondary" className="mb-4">Settings</Badge>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Your preferences</h1>
-              <p className="mt-3 text-muted-foreground max-w-2xl">Control alerts, privacy hints, and how IntelliFence behaves for you.</p>
+        <ScrollReveal>
+          <section className="relative overflow-hidden bg-gradient-hero">
+            <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div>
+                <Badge variant="secondary" className="mb-4">Settings</Badge>
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Your preferences</h1>
+                <p className="mt-3 text-muted-foreground max-w-2xl">Control alerts, privacy hints, and how IntelliFence behaves for you.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="glass" asChild>
+                  <Link to="/profile"><Shield className="h-4 w-4" /> Profile</Link>
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="glass" asChild>
-                <Link to="/profile"><Shield className="h-4 w-4" /> Profile</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+        <ScrollReveal delay={120}>
+          <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
           <Card className="bg-gradient-card border-border/60">
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2"><BellRing className="h-4 w-4" /> Notifications</CardTitle>
@@ -228,7 +232,8 @@ function SettingsPage() {
               <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save settings"}
             </Button>
           </div>
-        </section>
+          </section>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>

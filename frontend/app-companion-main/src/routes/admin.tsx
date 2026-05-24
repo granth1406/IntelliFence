@@ -30,6 +30,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -279,23 +280,26 @@ function AdminDashboard() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-hero">
-          <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-              <Badge variant="secondary" className="mb-4">Admin dashboard</Badge>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Zone Management</h1>
-              <p className="mt-3 text-muted-foreground max-w-2xl">Monitor and manage all zones and incidents in real time.</p>
+        <ScrollReveal>
+          <section className="relative overflow-hidden bg-gradient-hero">
+            <div className="absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.7_0.05_270/0.35)_1px,transparent_0)] [background-size:30px_30px]" />
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div>
+                <Badge variant="secondary" className="mb-4">Admin dashboard</Badge>
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Zone Management</h1>
+                <p className="mt-3 text-muted-foreground max-w-2xl">Monitor and manage all zones and incidents in real time.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="glass" asChild>
+                  <Link to="/cases"><Archive className="h-4 w-4" /> Cases</Link>
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="glass" asChild>
-                <Link to="/cases"><Archive className="h-4 w-4" /> Cases</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        </ScrollReveal>
 
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <ScrollReveal delay={120}>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Stats Cards */}
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5 mb-8">
             <StatCard title="Total zones" value={String(stats.totalZones)} icon={AlertTriangle} />
@@ -491,7 +495,8 @@ function AdminDashboard() {
               )}
             </CardContent>
           </Card>
-        </section>
+          </section>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>
