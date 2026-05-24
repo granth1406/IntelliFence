@@ -805,7 +805,7 @@ function LocationPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100vh-12rem)] lg:items-stretch">
-              <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant lg:h-full">
+              <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant h-[45vh] min-h-[260px] sm:h-[420px] lg:h-full">
                 {displayCoords ? (
                   <div id="map" className="w-full h-full"></div>
                 ) : (
@@ -824,8 +824,8 @@ function LocationPage() {
                 )}
               </div>
 
-              <div className="space-y-4 lg:pr-2 lg:h-full lg:overflow-y-auto">
-                <Card>
+              <div className="grid gap-4 sm:grid-cols-2 lg:flex lg:flex-col lg:gap-4 lg:pr-2 lg:h-full lg:overflow-y-auto">
+                <Card className="sm:col-span-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Navigation className="h-4 w-4 text-primary" />
@@ -843,7 +843,7 @@ function LocationPage() {
                   </div>
                 </Card>
 
-                <Card>
+                <Card className="sm:col-span-2">
                   <div className="flex items-center gap-2">
                     <Map className="h-4 w-4 text-primary" />
                     <span className="font-semibold">Nearby zones</span>
@@ -881,7 +881,7 @@ function LocationPage() {
                   </div>
                 </Card>
 
-                <Card>
+                <Card className="sm:col-span-1">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary" />
                     <span className="font-semibold">Zone filters</span>
@@ -910,7 +910,7 @@ function LocationPage() {
                   </div>
                 </Card>
 
-                <Card>
+                <Card className="sm:col-span-2">
                   <div className="flex items-center gap-2">
                     <Siren className="h-4 w-4 text-red-500" />
                     <span className="font-semibold">Report incident</span>
