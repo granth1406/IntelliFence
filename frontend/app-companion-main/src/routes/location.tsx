@@ -75,6 +75,7 @@ const LAST_KNOWN_LOCATION_KEY = "intellifence:last-known-location";
 const LOCATION_HISTORY_KEY = "intellifence:location-history";
 const MAX_HISTORY_POINTS = 10;
 const MAX_NEARBY_ZONES = 5;
+const DEFAULT_MAP_CENTER = { lat: 29.38, lng: 79.46 };
 
 type NearbyZone = {
   zone: any;
@@ -459,8 +460,6 @@ function LocationPage() {
   }, [isMapExpanded]);
 
   useEffect(() => {
-    if (!displayCoords) return;
-
     const init = async () => {
       if (!LRef.current) {
         const Leaflet = await import("leaflet");
@@ -468,6 +467,7 @@ function LocationPage() {
       }
 
       const L = LRef.current;
+      const activeCenter = displayCoords ?? zonesOnMap.map(getZoneCenter).find((center): center is { lat: number; lng: number } => Boolean(center)) ?? DEFAULT_MAP_CENTER;
 
       if (!mapRef.current) {
         if (!mapContainerRef.current) {
@@ -475,7 +475,7 @@ function LocationPage() {
         }
 
         mapRef.current = L.map(mapContainerRef.current, {
-          center: [displayCoords.lat, displayCoords.lng],
+          center: [activeCenter.lat, activeCenter.lng],
           zoom: 15,
           preferCanvas: true,
           zoomSnap: 0.25,
@@ -504,7 +504,7 @@ function LocationPage() {
           })
           .addTo(mapRef.current);
       } else {
-        mapRef.current.flyTo([displayCoords.lat, displayCoords.lng], 15, {
+        mapRef.current.flyTo([activeCenter.lat, activeCenter.lng], 15, {
           duration: 0.8,
           easeLinearity: 0.25,
           noMoveStart: true,
@@ -630,6 +630,18 @@ function LocationPage() {
           console.error("Failed to draw zone", err, zone);
         }
       });
+
+      if (!displayCoords) {
+        if (userMarkerRef.current) {
+          try {
+            mapRef.current?.removeLayer(userMarkerRef.current);
+          } catch {
+            // Ignore marker removal issues.
+          }
+          userMarkerRef.current = null;
+        }
+        return;
+      }
 
       if (userMarkerRef.current) {
         try {
