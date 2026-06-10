@@ -33,7 +33,7 @@ export function NotificationBell() {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[360px] p-0 glass border-border">
+      <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-[360px] sm:w-[360px] p-0 glass border-border">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div>
             <h3 className="font-semibold">Notifications</h3>

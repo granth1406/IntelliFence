@@ -1,16 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   AlertTriangle,
   Car,
   CheckCircle,
   CloudRain,
-  Crosshair,
   HelpCircle,
   History,
   Map,
   MapPin,
   Navigation,
+  Maximize2,
+  Minimize2,
   Plus,
   Power,
   Route as RouteIcon,
@@ -80,6 +82,46 @@ type NearbyZone = {
   distanceLabel: string;
 };
 
+const zoneIncidentIcons = {
+  accident: Car,
+  traffic_jam: RouteIcon,
+  crime: Shield,
+  suspicious_activity: HelpCircle,
+  medical_emergency: Zap,
+  natural_disaster: CloudRain,
+  other: AlertTriangle,
+  default: MapPin,
+} as const;
+
+function getZoneIncidentIcon(zone: any) {
+  const incidentType = String(zone?.incidentType || "").toLowerCase();
+  return zoneIncidentIcons[incidentType as keyof typeof zoneIncidentIcons] || zoneIncidentIcons.default;
+}
+
+function getZoneMarkerHtml(zone: any) {
+  const Icon = getZoneIncidentIcon(zone);
+  const risk = String(zone?.riskLevel || "medium").toLowerCase();
+  const tone = risk === "high" ? "#ef4444" : risk === "medium" ? "#f59e0b" : "#10b981";
+
+  return renderToStaticMarkup(
+    <div
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 9999,
+        display: "grid",
+        placeItems: "center",
+        background: tone,
+        color: "white",
+        boxShadow: "0 12px 24px rgba(0,0,0,0.35)",
+        border: "2px solid rgba(255,255,255,0.9)",
+      }}
+    >
+      <Icon size={16} strokeWidth={2.5} />
+    </div>
+  );
+}
+
 function haversineDistanceKm(a: Pick<Coords, "lat" | "lng">, b: Pick<Coords, "lat" | "lng">) {
   const earthRadiusKm = 6371;
   const toRadians = (value: number) => (value * Math.PI) / 180;
@@ -136,6 +178,7 @@ function LocationPage() {
   const { socket, isAuthenticated } = useApp();
   const [tracking, setTracking] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [lastKnownCoords, setLastKnownCoords] = useState<Coords | null>(() => {
     if (typeof window === "undefined") {
       return null;
@@ -363,9 +406,57 @@ function LocationPage() {
   }, [showApproved, showUnapproved]);
 
   const mapRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const userMarkerRef = useRef<any>(null);
   const zonesLayerRef = useRef<any>(null);
   const LRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!mapRef.current) {
+      return;
+    }
+
+    let frameOne = 0;
+    let frameTwo = 0;
+    let frameThree = 0;
+
+    const syncMapSize = () => {
+      try {
+        mapRef.current.invalidateSize();
+      } catch {
+        // Ignore Leaflet sizing issues during layout transitions.
+      }
+    };
+
+    frameOne = window.requestAnimationFrame(() => {
+      frameTwo = window.requestAnimationFrame(syncMapSize);
+      frameThree = window.requestAnimationFrame(syncMapSize);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameOne);
+      window.cancelAnimationFrame(frameTwo);
+      window.cancelAnimationFrame(frameThree);
+    };
+  }, [displayCoords, isMapExpanded]);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapContainerRef.current || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      try {
+        mapRef.current.invalidateSize();
+      } catch {
+        // Ignore ResizeObserver timing issues.
+      }
+    });
+
+    observer.observe(mapContainerRef.current);
+
+    return () => observer.disconnect();
+  }, [isMapExpanded]);
 
   useEffect(() => {
     if (!displayCoords) return;
@@ -379,7 +470,11 @@ function LocationPage() {
       const L = LRef.current;
 
       if (!mapRef.current) {
-        mapRef.current = L.map("map", {
+        if (!mapContainerRef.current) {
+          return;
+        }
+
+        mapRef.current = L.map(mapContainerRef.current, {
           center: [displayCoords.lat, displayCoords.lng],
           zoom: 15,
           preferCanvas: true,
@@ -393,11 +488,21 @@ function LocationPage() {
           zoomAnimation: true,
           fadeAnimation: true,
           markerZoomAnimation: true,
+          zoomControl: false,
+          attributionControl: false,
         });
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           attribution: "&copy; OpenStreetMap",
-        }).addTo(mapRef.current);
+        })
+          .on("load", () => {
+            try {
+              mapRef.current?.invalidateSize();
+            } catch {
+              // Ignore load-time sizing errors.
+            }
+          })
+          .addTo(mapRef.current);
       } else {
         mapRef.current.flyTo([displayCoords.lat, displayCoords.lng], 15, {
           duration: 0.8,
@@ -439,6 +544,7 @@ function LocationPage() {
           const incidentTitle = zone.title || zone.name || "Incident zone";
           const incidentDescription = zone.description || "No additional details provided.";
           const incidentTypeLabel = zone.incidentType ? String(zone.incidentType).replaceAll("_", " ") : "incident";
+          const center = getZoneCenter(zone);
 
           polygon.bindTooltip(escapeHtml(incidentTitle), {
             sticky: true,
@@ -465,6 +571,47 @@ function LocationPage() {
               </div>
             </div>
           `);
+
+          if (center) {
+            const marker = L.marker([center.lat, center.lng], {
+              icon: L.divIcon({
+                html: getZoneMarkerHtml(zone),
+                className: "zone-marker-icon",
+                iconSize: [34, 34],
+                iconAnchor: [17, 17],
+              }),
+            });
+
+            marker.bindTooltip(escapeHtml(incidentTitle), {
+              sticky: true,
+              direction: "top",
+              opacity: 0.95,
+              className: "zone-tooltip",
+              permanent: false,
+            });
+
+            marker.bindPopup(`
+              <div style="min-width: 220px; max-width: 280px;">
+                <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 6px;">Incident Info</div>
+                <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">${escapeHtml(incidentTitle)}</div>
+                <div style="font-size: 13px; line-height: 1.5; margin-bottom: 10px; color: #374151;">${escapeHtml(incidentDescription)}</div>
+                <div style="display:flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #4b5563; margin-bottom: 8px;">
+                  <span><strong>Type:</strong> ${escapeHtml(incidentTypeLabel)}</span>
+                  <span><strong>Risk:</strong> ${escapeHtml(String(zone.riskLevel || "medium"))}</span>
+                  <span><strong>Status:</strong> ${escapeHtml(String(zone.status || "pending"))}</span>
+                </div>
+                <div style="padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+                  <strong>Reported:</strong> ${escapeHtml(reportedTime)}
+                </div>
+              </div>
+            `);
+
+            marker.on("click", () => {
+              marker.openPopup();
+            });
+
+            zonesLayerRef.current.addLayer(marker);
+          }
 
           polygon.on("click", () => {
             polygon.openPopup();
@@ -805,22 +952,36 @@ function LocationPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100vh-12rem)] lg:items-stretch">
-              <div className="lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant h-[45vh] min-h-[260px] sm:h-[420px] lg:h-full">
-                {displayCoords ? (
-                  <div id="map" className="w-full h-full"></div>
-                ) : (
+              <div
+                className={
+                  isMapExpanded
+                    ? "fixed inset-0 z-[60] bg-gradient-card glass overflow-hidden"
+                    : "lg:col-span-2 relative bg-gradient-card glass rounded-2xl overflow-hidden shadow-elegant h-[45vh] min-h-[260px] sm:h-[420px] lg:h-full"
+                }
+              >
+                <div ref={mapContainerRef} className={isMapExpanded ? "h-full w-full" : "w-full h-full"} />
+                {!displayCoords && (
                   <MapPlaceholder tracking={tracking} />
                 )}
-                {displayCoords && (
-                  <div className="absolute top-4 left-4 glass rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm">
-                    <Crosshair className="h-4 w-4 text-primary" />
-                    <span className="font-mono">
-                      {displayCoords.lat.toFixed(5)}, {displayCoords.lng.toFixed(5)}
-                    </span>
-                    <Badge variant="outline" className="ml-2 text-[10px] uppercase tracking-widest">
-                      {tracking ? "Live" : lastKnownCoords ? "Last known" : "Location"}
-                    </Badge>
-                  </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => setIsMapExpanded((value) => !value)}
+                  className="absolute top-4 right-4 z-[61] h-10 w-10 rounded-xl shadow-lg"
+                  aria-label={isMapExpanded ? "Exit full screen map" : "Open full screen map"}
+                >
+                  {isMapExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+                {isMapExpanded && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsMapExpanded(false)}
+                    className="absolute left-4 top-4 z-[61] bg-background/90 backdrop-blur"
+                  >
+                    Close map
+                  </Button>
                 )}
               </div>
 

@@ -127,7 +127,7 @@ export function Navbar() {
       </nav>
 
       {mobileOpen && (
-        <div className="md:hidden glass border-b border-border px-4 py-4 space-y-1">
+        <div className="md:hidden glass border-b border-border px-4 py-4 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
           {allNavLinks.map((link) => (
             <Link
               key={link.to}
@@ -138,7 +138,37 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
-          {!isAuthenticated && (
+          {isAuthenticated ? (
+            <div className="mt-3 rounded-2xl border border-border/60 bg-background/40 p-3 space-y-3">
+              <div className="flex items-center gap-3 px-1">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
+                    {user?.name?.[0]?.toUpperCase() ?? "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{user?.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button variant="ghost" asChild className="justify-start">
+                  <Link to="/profile" onClick={() => setMobileOpen(false)}>Profile</Link>
+                </Button>
+                <Button variant="ghost" asChild className="justify-start">
+                  <Link to="/settings" onClick={() => setMobileOpen(false)}>Settings</Link>
+                </Button>
+              </div>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </Button>
+            </div>
+          ) : (
             <div className="flex gap-2 pt-2">
               <Button variant="ghost" asChild className="flex-1"><Link to="/login">Sign in</Link></Button>
               <Button variant="hero" asChild className="flex-1"><Link to="/signup">Sign up</Link></Button>
