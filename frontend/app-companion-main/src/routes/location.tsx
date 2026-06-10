@@ -972,29 +972,31 @@ function LocationPage() {
                 }
               >
                 <div ref={mapContainerRef} className={isMapExpanded ? "h-full w-full" : "w-full h-full"} />
-                {!displayCoords && (
-                  <MapPlaceholder tracking={tracking} />
-                )}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  onClick={() => setIsMapExpanded((value) => !value)}
-                  className="absolute top-4 right-4 z-[61] h-10 w-10 rounded-xl shadow-lg"
-                  aria-label={isMapExpanded ? "Exit full screen map" : "Open full screen map"}
-                >
-                  {isMapExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                </Button>
-                {isMapExpanded && (
+                {!displayCoords && <MapPlaceholder tracking={tracking} />}
+                <div className="pointer-events-none absolute inset-0 z-[80]">
                   <Button
                     type="button"
-                    variant="outline"
-                    onClick={() => setIsMapExpanded(false)}
-                    className="absolute left-4 top-4 z-[61] bg-background/90 backdrop-blur"
+                    variant="secondary"
+                    onClick={() => setIsMapExpanded((value) => !value)}
+                    className="pointer-events-auto absolute top-4 right-4 h-11 rounded-full border border-border/60 bg-background/90 px-4 shadow-xl backdrop-blur-md hover:bg-background sm:px-5"
+                    aria-label={isMapExpanded ? "Exit full screen map" : "Open full screen map"}
                   >
-                    Close map
+                    {isMapExpanded ? <Minimize2 className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}
+                    <span className="text-xs font-semibold uppercase tracking-widest">
+                      {isMapExpanded ? "Exit map" : "Expand map"}
+                    </span>
                   </Button>
-                )}
+                  {isMapExpanded && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsMapExpanded(false)}
+                      className="pointer-events-auto absolute left-4 top-4 bg-background/90 backdrop-blur"
+                    >
+                      Close map
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:flex lg:flex-col lg:gap-4 lg:pr-2 lg:h-full lg:overflow-y-auto">

@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const {Server} = require("socket.io");
+const fs = require('fs');
+const path = require('path');
 
 const db_var = require('./config/db_connection');
 const authRoutes = require('./routes/authRoutes');
@@ -16,6 +18,8 @@ const app = express();
 const server = http.createServer(app)
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:8080";
+const FRONTEND_DIST_PATH = process.env.FRONTEND_DIST_PATH || path.resolve(__dirname, '../frontend/app-companion-main/dist');
+const FRONTEND_INDEX_PATH = path.join(FRONTEND_DIST_PATH, 'index.html');
 
 // Configure Socket.IO CORS to match the frontend origin (no trailing slash)
 const io = new Server(server, {
@@ -39,6 +43,22 @@ app.use('/api/auth', authRoutes);
 // Do NOT apply `authMiddleware` globally — protect only routes that require authentication
 app.use("/api/location", locationRoutes);
 app.use("/api/zones", zoneRoutes);
+
+if (fs.existsSync(FRONTEND_DIST_PATH)) {
+    app.use(express.static(FRONTEND_DIST_PATH));
+
+    app.get(/^(?!\/api).*/, (req, res, next) => {
+        if (req.path.startsWith('/api/')) {
+            return next();
+        }
+
+        if (fs.existsSync(FRONTEND_INDEX_PATH)) {
+            return res.sendFile(FRONTEND_INDEX_PATH);
+        }
+
+        return next();
+    });
+}
 
 db_var.db_connection();
 
