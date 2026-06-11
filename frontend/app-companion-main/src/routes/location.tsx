@@ -252,7 +252,7 @@ function LocationPage() {
           distanceLabel: formatDistance(distanceKm),
         };
       })
-      .filter(Boolean)
+      .filter((zone): zone is NearbyZone => zone !== null)
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, MAX_NEARBY_ZONES) as NearbyZone[];
   }, [displayCoords, zonesOnMap]);
@@ -1277,8 +1277,8 @@ function LocationPage() {
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="bg-gradient-card glass rounded-2xl p-5 shadow-card">{children}</div>;
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-gradient-card glass rounded-2xl p-5 shadow-card ${className ?? ""}`.trim()}>{children}</div>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
