@@ -932,7 +932,7 @@ function LocationPage() {
         <ScrollReveal delay={120}>
           <section className="bg-background/95">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="mb-6 grid gap-4 lg:grid-cols-2">
+            <div className="mb-6 grid gap-4 md:grid-cols-2">
               <Card>
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-3">
@@ -978,11 +978,11 @@ function LocationPage() {
                     type="button"
                     variant="secondary"
                     onClick={() => setIsMapExpanded((value) => !value)}
-                    className="pointer-events-auto absolute top-4 right-4 h-11 rounded-full border border-border/60 bg-background/90 px-4 shadow-xl backdrop-blur-md hover:bg-background sm:px-5"
+                    className="pointer-events-auto absolute top-4 right-4 h-11 rounded-full border border-border/60 bg-background/90 px-3 shadow-xl backdrop-blur-md hover:bg-background sm:px-5"
                     aria-label={isMapExpanded ? "Exit full screen map" : "Open full screen map"}
                   >
-                    {isMapExpanded ? <Minimize2 className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}
-                    <span className="text-xs font-semibold uppercase tracking-widest">
+                    {isMapExpanded ? <Minimize2 className="h-4 w-4 sm:mr-2" /> : <Maximize2 className="h-4 w-4 sm:mr-2" />}
+                    <span className="hidden text-xs font-semibold uppercase tracking-widest sm:inline">
                       {isMapExpanded ? "Exit map" : "Expand map"}
                     </span>
                   </Button>
@@ -999,8 +999,8 @@ function LocationPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:flex lg:flex-col lg:gap-4 lg:pr-2 lg:h-full lg:overflow-y-auto">
-                <Card className="sm:col-span-1">
+              <div className="grid gap-4 md:grid-cols-2 lg:flex lg:flex-col lg:gap-4 lg:pr-2 lg:h-full lg:overflow-y-auto">
+                <Card className="md:col-span-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Navigation className="h-4 w-4 text-primary" />
@@ -1018,7 +1018,7 @@ function LocationPage() {
                   </div>
                 </Card>
 
-                <Card className="sm:col-span-2">
+                <Card className="md:col-span-2">
                   <div className="flex items-center gap-2">
                     <Map className="h-4 w-4 text-primary" />
                     <span className="font-semibold">Nearby zones</span>
@@ -1056,7 +1056,7 @@ function LocationPage() {
                   </div>
                 </Card>
 
-                <Card className="sm:col-span-1">
+                <Card className="md:col-span-1">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary" />
                     <span className="font-semibold">Zone filters</span>
@@ -1085,7 +1085,7 @@ function LocationPage() {
                   </div>
                 </Card>
 
-                <Card className="sm:col-span-2">
+                <Card className="md:col-span-2">
                   <div className="flex items-center gap-2">
                     <Siren className="h-4 w-4 text-red-500" />
                     <span className="font-semibold">Report incident</span>
