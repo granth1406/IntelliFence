@@ -7,7 +7,7 @@ services:
     startCommand: npm start
     autoDeployTrigger: commit
 
-  - type: web
+  - type: static
     name: intellifence-frontend
     runtime: static
     rootDir: frontend/app-companion-main
