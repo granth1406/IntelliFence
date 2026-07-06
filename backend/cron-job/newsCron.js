@@ -3,7 +3,7 @@ const cron = require("node-cron");
 const { fetchLatestNews } = require("../services/newsService");
 const { filterArticles } = require("../utils/articleFilter");
 
-const NewsArticle = require("../models/NewsArticle");
+const NewsArticle = require("../models/newsArticle");
 
 cron.schedule("*/1 * * * *", async () => {
 

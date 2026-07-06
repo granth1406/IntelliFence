@@ -1,6 +1,6 @@
 const cron = require("node-cron");
 
-const NewsArticle = require("../models/NewsArticle");
+const NewsArticle = require("../models/newsArticle");
 const { extractIncidents } = require("../ai/aiExtractor");
 const { createZoneFromIncident } = require("../services/aiZoneService");
 
