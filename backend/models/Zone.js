@@ -1,117 +1,194 @@
 const mongoose = require("mongoose");
 
-const zoneSchema = new mongoose.Schema({
+const zoneSchema = new mongoose.Schema(
+  {
+    /* =========================
+       ORIGIN / OWNERSHIP
+    ========================== */
 
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
-  },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
 
-  type: {
-    type: String,
-    enum: ["incident","zone"],
-    default: "incident"
-  },
+    source: {
+      type: String,
+      enum: ["user", "news", "ai", "system"],
+      default: "user"
+    },
 
-  title: {
-    type: String, 
-    required: true
-  }, 
-  
-  description: {
-    type : String,
-    required : true
-   },
+    /* =========================
+       CORE INCIDENT DATA
+    ========================== */
 
-  riskLevel: {
-    type: String,
-    enum: ["low","medium","high"],
-    default: "medium"
-  },
+    type: {
+      type: String,
+      enum: ["incident", "zone"],
+      default: "incident"
+    },
 
-  incidentType: {
-    type: String,
-    enum: ["accident", "traffic_jam", "crime", "suspicious_activity", "medical_emergency", "natural_disaster", "other"],
-    default: "other"
-  },
+    title: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-  approved: {
-    type: Boolean,
-    default: false
-  },
+    description: {
+      type: String,
+      required: true
+    },
 
-  latitude: Number,
-  longitude: Number,
+    incidentType: {
+      type: String,
+      enum: [
+        "accident",
+        "traffic_jam",
+        "crime",
+        "suspicious_activity",
+        "medical_emergency",
+        "natural_disaster",
+        "fire",
+        "flood",
+        "earthquake",
+        "landslide",
+        "explosion",
+        "other"
+      ],
+      default: "other"
+    },
 
-  radius: {
-    type: Number,
-    default: 0.003
-  },
+    riskLevel: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium"
+    },
 
-  coordinates: [
-    {
-      latitude: Number,
-      longitude: Number,
-      _id:false
-    }
-  ],
+    /* =========================
+       LOCATION DATA
+    ========================== */
 
-  hexagonVertices: [
-    {
-      latitude: Number,
-      longitude: Number,
-      _id: false
-    }
-  ],
+    latitude: Number,
+    longitude: Number,
 
-  status: {
-    type: String,
-    enum:["pending","approved","denied","resolved","verified_by_users","false"],
-    default:"pending"
-  },
-
-  verificationScore:{
-    type:Number,
-    default:0
-  },
-
-  confirmations:[
-    {
-      user:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"User"
-      },
-      response:{
-        type:String,
-        enum:["confirm","reject"]
+    coordinates: {
+      type: {
+        lat: Number,
+        lng: Number
       }
-    }
-  ],
+    },
 
-  userResponses: [
-    {
-      user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
-      },
-      response: {
-        type: String,
-        enum: ["ok", "not_ok"]
-      },
-      timestamp: {
-        type: Date,
-        default: Date.now
+    hexagonVertices: [
+      {
+        lat: Number,
+        lng: Number,
+        _id: false
       }
-    }
-  ],
+    ],
 
-  alertLevel:{
-    type:String,
-    enum:["none","near","inside"],
-    default:"none"
-  }
+    radius: {
+      type: Number,
+      default: 0.003
+    },
 
-},{timestamps:true});
+    locationText: {
+      type: String
+    },
 
-module.exports = mongoose.model("Zone",zoneSchema);
+    /* =========================
+       LIFECYCLE / STATUS
+    ========================== */
+
+    status: {
+      type: String,
+      enum: ["ACTIVE", "RESOLVED", "EXPIRED"],
+      default: "ACTIVE"
+    },
+
+    expiresAt: {
+      type: Date
+    },
+
+    alertLevel: {
+      type: String,
+      enum: ["none", "near", "inside"],
+      default: "none"
+    },
+
+    /* =========================
+       AI + CONFIDENCE SYSTEM
+    ========================== */
+
+    confidence: {
+      type: Number,
+      default: 0.5,
+      min: 0,
+      max: 1
+    },
+
+    fingerprint: {
+      type: String,
+      unique: true,
+      index: true
+    },
+
+    /* =========================
+       VERIFICATION SYSTEM
+    ========================== */
+
+    approved: {
+      type: Boolean,
+      default: false
+    },
+
+    verificationScore: {
+      type: Number,
+      default: 0
+    },
+
+    confirmations: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User"
+        },
+        response: {
+          type: String,
+          enum: ["confirm", "reject"]
+        }
+      }
+    ],
+
+    userResponses: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User"
+        },
+        response: {
+          type: String,
+          enum: ["ok", "not_ok"]
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
+
+    /* =========================
+       SOURCE TRACKING (NEWS/AUTHORITY)
+    ========================== */
+
+    sources: [
+      {
+        name: String,
+        url: String,
+        publishedAt: Date
+      }
+    ]
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Zone", zoneSchema);

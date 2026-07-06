@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
-const {Server} = require("socket.io");
+const { Server } = require("socket.io");
 const fs = require('fs');
 const path = require('path');
 
@@ -15,13 +15,21 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app)
+const server = http.createServer(app);
 
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:8080";
-const FRONTEND_DIST_PATH = process.env.FRONTEND_DIST_PATH || path.resolve(__dirname, '../frontend/app-companion-main/dist');
-const FRONTEND_INDEX_PATH = path.join(FRONTEND_DIST_PATH, 'index.html');
+const FRONTEND_ORIGIN =
+    process.env.FRONTEND_ORIGIN || "http://localhost:8080";
 
-// Configure Socket.IO CORS to match the frontend origin (no trailing slash)
+const FRONTEND_DIST_PATH =
+    process.env.FRONTEND_DIST_PATH ||
+    path.resolve(__dirname, "../frontend/app-companion-main/dist");
+
+const FRONTEND_INDEX_PATH = path.join(
+    FRONTEND_DIST_PATH,
+    "index.html"
+);
+
+// Configure Socket.IO
 const io = new Server(server, {
     cors: {
         origin: FRONTEND_ORIGIN,
@@ -32,23 +40,28 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-// Configure Express CORS to allow the frontend origin during development
-app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
+// Middleware
+app.use(cors({
+    origin: FRONTEND_ORIGIN,
+    credentials: true
+}));
+
 app.use(express.json());
-app.use(express.urlencoded({extended: true}));
+app.use(express.urlencoded({ extended: true }));
 
-// Public auth routes
-app.use('/api/auth', authRoutes);
-
-// Do NOT apply `authMiddleware` globally — protect only routes that require authentication
+// Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/zones", zoneRoutes);
 
+// Serve React build if available
 if (fs.existsSync(FRONTEND_DIST_PATH)) {
+
     app.use(express.static(FRONTEND_DIST_PATH));
 
     app.get(/^(?!\/api).*/, (req, res, next) => {
-        if (req.path.startsWith('/api/')) {
+
+        if (req.path.startsWith("/api/")) {
             return next();
         }
 
@@ -60,21 +73,35 @@ if (fs.existsSync(FRONTEND_DIST_PATH)) {
     });
 }
 
-db_var.db_connection();
-
-io.on("connection", (socket)=>{
-    console.log("User Connected: ",socket.id);
-
-    socket.on("disconnect", ()=>{
-        console.log("User disconnected:",socket.id)
-    });
-});
-
 const PORT = process.env.PORT;
 
-server.listen(PORT, ()=>{
-    console.log(`Running at http://localhost:${PORT}`);
-});
+async function startServer() {
 
+    try {
+        console.log("[STARTUP] IntelliFence backend booting...");
+        await db_var.db_connection();
+        console.log("[CRON] Loading news and AI jobs...");
+        require("./cron-job/newsCron.js");
+        require("./cron-job/aiCron.js");
+        console.log("[CRON] Jobs loaded.");
 
+        io.on("connection", (socket) => {
 
+            socket.on("disconnect", () => {
+            });
+
+        });
+
+        server.listen(PORT, () => {
+            console.log(`[SERVER] Listening on http://localhost:${PORT}`);
+        });
+
+    } catch (err) {
+
+        console.error("[STARTUP] Startup Failed:", err);
+        process.exit(1);
+
+    }
+}
+
+startServer();

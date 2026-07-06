@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   AlertTriangle,
@@ -230,6 +230,41 @@ function LocationPage() {
   const [showUnapproved, setShowUnapproved] = useState(true);
   const [zonesOnMap, setZonesOnMap] = useState<any[]>([]);
 
+  const refreshZones = useCallback(async () => {
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL;
+      const results: any[] = [];
+
+      if (showApproved) {
+        const r = await fetch(`${base}/zones/zones`);
+        if (r.ok) {
+          const data = await r.json();
+          results.push(...data);
+        }
+      }
+
+      if (showUnapproved) {
+        const r2 = await fetch(`${import.meta.env.VITE_API_BASE_URL}/zones/incidents?approved=false`);
+        if (r2.ok) {
+          const data2 = await r2.json();
+          results.push(...data2);
+        }
+      }
+
+      const normalized = results.map((z: any) => {
+        if (z.hexagonVertices && z.hexagonVertices.length) {
+          return { ...z, vertices: z.hexagonVertices.map((v: any) => [v.latitude, v.longitude]) };
+        }
+        const radius = z.radius || 0.003;
+        return { ...z, vertices: computeHexagon(z.latitude, z.longitude, radius) };
+      });
+
+      setZonesOnMap(normalized);
+    } catch (err) {
+      console.error("Failed to fetch zones for map", err);
+    }
+  }, [showApproved, showUnapproved]);
+
 
   const displayCoords = coords ?? lastKnownCoords;
 
@@ -363,48 +398,11 @@ function LocationPage() {
 
   useEffect(() => {
     let mounted = true;
-    const fetchZones = async () => {
-      try {
-        const base = import.meta.env.VITE_API_BASE_URL;
-        const results: any[] = [];
-
-        if (showApproved) {
-          const r = await fetch(`${base}/zones/zones`);
-          if (r.ok) {
-            const data = await r.json();
-            results.push(...data);
-          }
-        }
-
-        if (showUnapproved) {
-          const r2 = await fetch(`${import.meta.env.VITE_API_BASE_URL}/zones/incidents?approved=false`);
-          if (r2.ok) {
-            const data2 = await r2.json();
-            results.push(...data2);
-          }
-        }
-
-        if (!mounted) return;
-
-        const normalized = results.map((z: any) => {
-          if (z.hexagonVertices && z.hexagonVertices.length) {
-            return { ...z, vertices: z.hexagonVertices.map((v: any) => [v.latitude, v.longitude]) };
-          }
-          const radius = z.radius || 0.003;
-          return { ...z, vertices: computeHexagon(z.latitude, z.longitude, radius) };
-        });
-
-        setZonesOnMap(normalized);
-      } catch (err) {
-        console.error("Failed to fetch zones for map", err);
-      }
-    };
-
-    fetchZones();
+    refreshZones();
     return () => {
       mounted = false;
     };
-  }, [showApproved, showUnapproved]);
+  }, [refreshZones]);
 
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -702,18 +700,34 @@ function LocationPage() {
       setAlertDialogOpen(true);
     };
 
+    const handleZoneChange = () => {
+      refreshZones();
+    };
+
     socket.on("zone-entered", handleZoneEntered);
     socket.on("near-zone-alert", handleNearZoneAlert);
     socket.on("unapproved-zone-alert", handleUnapprovedZoneAlert);
     socket.on("user-response-request", handleUserResponseRequest);
+    socket.on("zone-created", handleZoneChange);
+    socket.on("zone-updated", handleZoneChange);
+    socket.on("zone-deleted", handleZoneChange);
+    socket.on("zone-approved", handleZoneChange);
+    socket.on("zone-denied", handleZoneChange);
+    socket.on("zone-resolved", handleZoneChange);
 
     return () => {
       socket.off("zone-entered", handleZoneEntered);
       socket.off("near-zone-alert", handleNearZoneAlert);
       socket.off("unapproved-zone-alert", handleUnapprovedZoneAlert);
       socket.off("user-response-request", handleUserResponseRequest);
+      socket.off("zone-created", handleZoneChange);
+      socket.off("zone-updated", handleZoneChange);
+      socket.off("zone-deleted", handleZoneChange);
+      socket.off("zone-approved", handleZoneChange);
+      socket.off("zone-denied", handleZoneChange);
+      socket.off("zone-resolved", handleZoneChange);
     };
-  }, [socket]);
+  }, [socket, refreshZones]);
 
   useEffect(() => {
     if (!tracking) {

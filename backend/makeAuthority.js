@@ -26,8 +26,6 @@ async function main() {
       process.exitCode = 2;
       return;
     }
-
-    console.log(`Updated ${user.email} to role=${user.role}`);
   } catch (error) {
     console.error(error);
     process.exitCode = 1;
